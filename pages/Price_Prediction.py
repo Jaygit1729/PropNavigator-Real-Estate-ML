@@ -18,7 +18,7 @@ st.caption("Estimate Gurgaon property prices using ML-powered insights")
 
 # 2. Path Setup
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 MODEL_PATH = os.path.join(
     BASE_DIR,
@@ -49,8 +49,16 @@ def load_dataframe(path):
 # 4. Load Model & Data
 
 df = load_dataframe(DF_PATH)
+
 artifact = load_model(MODEL_PATH)
+
 model_pipeline = artifact["pipeline"]
+model_name = artifact["model_name"]
+mape_percent = artifact["test_mape_percent"]
+
+# Convert percentage to decimal
+
+mape = mape_percent / 100
 
 
 def get_options(col):
@@ -125,7 +133,7 @@ with col3:
     )
 
 
-# 6. Advance Options
+# 6. Advanced Options
 
 with st.expander("⚙️ Advanced Options (Optional)"):
 
@@ -169,11 +177,16 @@ area_per_bedroom = total_area / bedrooms if bedrooms > 0 else 0
 plot_area_missing = 0
 
 
+
 # 8. Price Prediction
 
 st.markdown("---")
 
 if st.button("💰 Estimate Price"):
+
+    
+    if total_area > 15000:
+        st.warning("⚠️ Extremely large area detected. Prediction may be unreliable.")
 
     input_df = pd.DataFrame([{
         "property_type": property_type,
@@ -201,26 +214,25 @@ if st.button("💰 Estimate Price"):
 
         st.success(f"### 💵 Estimated Price: ₹{final_price:.2f} Crore")
 
-        # confidence interval
-
-        mape = 0.1321
+        # Price Range using MAPE
 
         lower = final_price / (1 + mape)
         upper = final_price * (1 + mape)
 
         st.info(
+
             f"📊 Estimated price range: **₹{lower:.2f} Cr – ₹{upper:.2f} Cr** "
-            f"(±13.21% model error)"
+            f"(±{mape_percent:.2f}% model error)"
         )
+
+        st.caption(f"Model used: **{model_name}**")
 
     except Exception as e:
 
         st.error(f"❌ Prediction failed: {e}")
 
 
-# ---------------------------------------------------
-# 9. FOOTER
-# ---------------------------------------------------
+# 9. Footer
 
 st.markdown("---")
 
