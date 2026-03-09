@@ -20,10 +20,5 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Ignore large dataset files
-data/
-*.csv
-*.xlsx
-*.parquet
 
 
