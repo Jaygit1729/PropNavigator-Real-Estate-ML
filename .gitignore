@@ -1,24 +1,40 @@
-# Ignore virtual environments
+# Virtual environments
 propnav/
 env/
 venv/
+.venv/
 
-# Ignore logs
+# Logs
 logs/
 *.log
 
-# Ignore compiled Python files
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Ignore Jupyter Notebook checkpoints
-*.ipynb_checkpoints
+# Jupyter checkpoints
+.ipynb_checkpoints/
 
-# Ignore OS-specific files
+# OS files
 .DS_Store
 Thumbs.db
 
+# Environment variables - NEVER commit
+.env
 
+# Data files - too large for git
+data/
 
+# Model artifacts - too large for git
+artifacts/
+models/
+
+# Binary/generated files inside notebooks
+notebooks/**/*.pkl
+notebooks/**/*.csv
+notebooks/**/*.html
+
+# IDE
+.vscode/settings.json
