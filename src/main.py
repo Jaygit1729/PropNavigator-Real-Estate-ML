@@ -50,7 +50,7 @@ def main():
         save_data(cleaned_houses, "data/data_cleaning/cleaned_independent_builder_floor.csv")
         logger.info("Independent Builder Floor data cleaned and saved.") 
         
-        """
+        
         # 4. Merge Datasets
         
         logger.info("Step 4: Merging datasets...")
@@ -65,7 +65,7 @@ def main():
             return
         logger.info("Datasets merged successfully.")
 
-        
+        """
         # 5. Feature Engineering
 
         logger.info("Step 5: Performing feature engineering...")
