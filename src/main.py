@@ -1,5 +1,6 @@
 from src.data_cleaning.residential_apartment_cleaning import clean_flat_data
 from src.data_cleaning.house_cleaning import clean_house_data
+from src.data_cleaning.indepedent_builder_floor import clean_builder_data
 from src.data_cleaning.merge_data import merge_cleaned_datasets
 from src.feature_engineering.feature_eng import feature_engineering
 from src.data_preprocessing.pre_process_data import preprocessing as data_preprocessing
@@ -42,15 +43,16 @@ def main():
         # 3. Clean Indepedent Builder Floor Data
 
         logger.info("Step 3: Cleaning Independent Builder Floor data...")
-        cleaned_houses = clean_house_data("data/web_scraping/independent_builder_floor.csv")
+        cleaned_houses = clean_builder_data("data/web_scraping/independent_builder_floor.csv")
         if cleaned_houses is None:
             logger.error("Independent Builder Floor data cleaning failed (returned None).")
             return
         save_data(cleaned_houses, "data/data_cleaning/cleaned_independent_builder_floor.csv")
-        logger.info("Independent Builder Floor data cleaned and saved.")
-
+        logger.info("Independent Builder Floor data cleaned and saved.") 
+        
+        """
         # 4. Merge Datasets
-
+        
         logger.info("Step 4: Merging datasets...")
         merged_df = merge_cleaned_datasets(
             "data/data_cleaning/cleaned_residential_apartment.csv",
@@ -63,7 +65,7 @@ def main():
             return
         logger.info("Datasets merged successfully.")
 
-        """
+        
         # 5. Feature Engineering
 
         logger.info("Step 5: Performing feature engineering...")
@@ -101,7 +103,9 @@ def main():
         logger.info("Step 8-11: Executing Model Building Pipeline...")
         run_model_building(fs_df)
         
-        logger.info("Pipeline finished successfully.") """
+        logger.info("Pipeline finished successfully.") 
+        
+        """
 
     except Exception as e:
         logger.error(f"Critical pipeline failure: {str(e)}", exc_info=True) 
