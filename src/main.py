@@ -9,7 +9,7 @@ from src.feature_selection.feature_selection import feature_selection_pipeline
 from src.model_building.mb_main import run_model_building
 
 
-logger = setup_logger("logs/main_pipeline.log")
+logger = setup_logger(__name__,"logs/main_pipeline.log")
 
 
 def main():
@@ -63,7 +63,7 @@ def main():
             return
         logger.info("Datasets merged successfully.")
 
-
+        """
         # 5. Feature Engineering
 
         logger.info("Step 5: Performing feature engineering...")
@@ -101,7 +101,7 @@ def main():
         logger.info("Step 8-11: Executing Model Building Pipeline...")
         run_model_building(fs_df)
         
-        logger.info("Pipeline finished successfully.")
+        logger.info("Pipeline finished successfully.") """
 
     except Exception as e:
         logger.error(f"Critical pipeline failure: {str(e)}", exc_info=True) 

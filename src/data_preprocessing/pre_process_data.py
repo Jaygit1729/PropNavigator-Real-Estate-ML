@@ -4,7 +4,7 @@ import pandas as pd
 from src.logger_utils import setup_logger
 
 
-logger = setup_logger('logs/pre_processing.log')
+logger = setup_logger(__name__,'logs/pre_processing.log')
 logger.info("Logging set up successfully for Pre-Processing Module!")
 
 def create_area_missing_flags(df):

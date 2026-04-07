@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import RFE
 
 
-logger = setup_logger('logs/feature_selection.log')
+logger = setup_logger(__name__,'logs/feature_selection.log')
 logger.info("Feature Selection logging initialized.")
 
 

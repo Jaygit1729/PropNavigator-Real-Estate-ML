@@ -18,7 +18,7 @@ from .mb_tuning import tune_model
 from .mb_persistence import save_model
 
 
-logger = setup_logger("logs/mb_main.log")
+logger = setup_logger(__name__,"logs/mb_main.log")
 
 TARGET_COL = "price_in_cr"
 

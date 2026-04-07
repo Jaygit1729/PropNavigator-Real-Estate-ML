@@ -2,7 +2,7 @@ import pandas as pd
 import os
 from src.logger_utils import setup_logger
 
-logger = setup_logger("logs/merge_data.log")
+logger = setup_logger(__name__,"logs/merge_data.log")
 
 def merge_cleaned_datasets(flat_path, house_path, indepedent_builder_floor_path, output_path, shuffle=True):
     try:

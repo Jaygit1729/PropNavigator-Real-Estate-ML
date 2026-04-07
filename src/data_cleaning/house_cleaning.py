@@ -3,7 +3,7 @@ import pandas as pd
 from src.data_ingestions.ingest_data import load_data
 from src.logger_utils import setup_logger
 
-logger = setup_logger("logs/house_cleaning.py")
+logger = setup_logger(__name__,"logs/house_cleaning.py")
 
 
 

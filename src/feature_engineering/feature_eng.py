@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import MultiLabelBinarizer
 
 
-logger = setup_logger('logs/feature_eng.log')
+logger = setup_logger(__name__,'logs/feature_eng.log')
 logger.info("Logging set up Successfully for Feature Engineering Module!")
 
 

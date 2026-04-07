@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 # Initialize the logger
-logger = setup_logger('logs/data_ingestions.log')
+logger = setup_logger(__name__,'logs/data_ingestions.log')
 logger.info("Logging setup for data ingestion successfully!")
 
 def load_data(file_path):

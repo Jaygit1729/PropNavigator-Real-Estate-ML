@@ -2,7 +2,7 @@ import joblib
 import os
 from src.logger_utils import setup_logger
 
-logger = setup_logger("logs/mb_persistence.log")
+logger = setup_logger(__name__,"logs/mb_persistence.log")
 
 
 def save_model(model_pipeline, model_name, metric, filepath):
