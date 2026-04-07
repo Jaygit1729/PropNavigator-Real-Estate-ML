@@ -8,7 +8,7 @@ logger = setup_logger(__name__, 'logs/data_ingestions.log')
 logger.info("Data ingestion module loaded.")
 
 
-def load_data(file_path: str) -> pd.DataFrame | None:
+def load_data(file_path: str) :
     """
     Loads a CSV file into a DataFrame.
     Returns None if the file doesn't exist or loading fails.
@@ -28,7 +28,7 @@ def load_data(file_path: str) -> pd.DataFrame | None:
         return None
 
 
-def save_data(df: pd.DataFrame, output_path: str) -> bool:
+def save_data(df: pd.DataFrame, output_path: str):
     """
     Saves a DataFrame to CSV at the given path.
     Creates intermediate directories if they don't exist.

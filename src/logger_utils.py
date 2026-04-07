@@ -22,8 +22,7 @@ def setup_logger(name: str, log_file: str):
             os.makedirs(log_dir, exist_ok=True)
 
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
         file_handler = logging.FileHandler(log_file)
         file_handler.setFormatter(formatter)
