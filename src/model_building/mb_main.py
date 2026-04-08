@@ -1,13 +1,14 @@
+# src/model_building/mb_main.py
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.svm import SVR
 from xgboost import XGBRegressor
-
 from sklearn.metrics import mean_absolute_percentage_error
-
 from src.logger_utils import setup_logger
 from .mb_preprocessing import (
+    get_feature_lists,
     transform_target,
     inverse_transform_target,
     get_tree_preprocessor,
@@ -18,39 +19,67 @@ from .mb_tuning import tune_model
 from .mb_persistence import save_model
 
 
-logger = setup_logger(__name__,"logs/mb_main.log")
+logger = setup_logger(__name__, "logs/mb_main.log")
 
 TARGET_COL = "price_in_cr"
 
 
-def run_model_building(fs_df):
-
+def run_model_building(fs_df: pd.DataFrame) -> dict:
+    """
+    Full model building pipeline:
+        1. Splits data with stratification on price bins
+        2. Derives feature lists dynamically from training data
+        3. Evaluates base models
+        4. Tunes all models with RandomizedSearchCV
+        5. Selects best model by test MAPE
+        6. Saves best model via MAPE-gated persistence
+    """
     try:
-        logger.info("Model Building Pipeline Started.")
+        logger.info("Model building pipeline started.")
+        logger.info(f"Input shape: {fs_df.shape}")
 
-        #  Data Preparation
-
+        # Data preparation
         X = fs_df.drop(columns=[TARGET_COL])
         y = fs_df[TARGET_COL]
         y_log = transform_target(y)
 
+        # Stratify on price bins so train/test have
+        # similar price distributions
         price_bins = pd.qcut(y, q=5, labels=False)
 
         X_train, X_test, y_train_log, y_test_log = train_test_split(
-            X,
-            y_log,
+            X, y_log,
             stratify=price_bins,
             test_size=0.2,
             random_state=42
         )
+        logger.info(
+            f"Train shape: {X_train.shape} | "
+            f"Test shape: {X_test.shape}"
+        )
 
-        logger.info(f"Train shape: {X_train.shape}, Test shape: {X_test.shape}")
+        # Derive feature lists dynamically from training data
+        # This means changing top_n in feature selection never
+        # breaks the model building pipeline
+        numerical_features, categorical_features = get_feature_lists(X_train)
+        logger.info(
+            f"Numerical features ({len(numerical_features)}): "
+            f"{numerical_features}"
+        )
+        logger.info(
+            f"Categorical features ({len(categorical_features)}): "
+            f"{categorical_features}"
+        )
 
-        #  Base Model Experiments
+        # Build preprocessors from actual column lists
+        tree_preprocessor = get_tree_preprocessor(
+            numerical_features, categorical_features
+        )
+        linear_preprocessor = get_linear_preprocessor(
+            numerical_features, categorical_features
+        )
 
-        tree_preprocessor = get_tree_preprocessor()
-        linear_preprocessor = get_linear_preprocessor()
-
+        # Base model evaluation
         model_dict = {
             "RandomForest": (
                 RandomForestRegressor(random_state=42),
@@ -71,11 +100,8 @@ def run_model_building(fs_df):
         }
 
         results = []
-
         for name, (model, preprocessor) in model_dict.items():
-
-            logger.info(f"Evaluating {name}")
-
+            logger.info(f"Evaluating base model: {name}")
             res = scorer(
                 model_name=name,
                 model=model,
@@ -85,90 +111,74 @@ def run_model_building(fs_df):
                 y_train_log=y_train_log,
                 y_test_log=y_test_log
             )
-
             results.append(res)
 
         results_df = pd.DataFrame(results).sort_values("Test MAPE")
-
-        print("\n===== BASE MODEL RESULTS =====")
-        print(results_df)
-        print("================================\n")
-
+        logger.info(f"Base model results:\n{results_df.to_string()}")
         logger.info("Base model evaluation completed.")
 
-        #  Hyperparameter Tuning
-
+        # Hyperparameter tuning
+        # Pass numerical and categorical feature lists so each
+        # tuning run builds its preprocessor from actual columns
         tuned_models = {}
+        for name, (model, _) in model_dict.items():
+            logger.info(f"Starting tuning for {name}.")
+            tuned_models[name] = tune_model(
+                model_name=name,
+                model=model,
+                X_train=X_train,
+                y_train_log=y_train_log,
+                X_test=X_test,
+                y_test_log=y_test_log,
+                numerical_features=numerical_features,
+                categorical_features=categorical_features
+            )
 
-        logger.info("Starting tuning for RandomForest")
-        tuned_models["RandomForest"] = tune_model(
-            "RandomForest",
-            RandomForestRegressor(random_state=42),
-            X_train,
-            y_train_log,
-            X_test,
-            y_test_log
-        )
+        logger.info("Tuning completed.")
 
-        logger.info("Starting tuning for XGBoost")
-        tuned_models["XGBoost"] = tune_model(
-            "XGBoost",
-            XGBRegressor(
-                random_state=42,
-                objective="reg:squarederror",
-                tree_method="hist"
-            ),
-            X_train,
-            y_train_log,
-            X_test,
-            y_test_log
-        )
-
-        logger.info("Starting tuning for SVR")
-        tuned_models["SVR"] = tune_model(
-            "SVR",
-            SVR(),
-            X_train,
-            y_train_log,
-            X_test,
-            y_test_log
-        )
-
-        logger.info("Tuning completed successfully.")
-
-        # Select Best Tuned Model
-
+        # Select best tuned model by test MAPE
         best_model_name = None
         best_test_mape = float("inf")
         best_pipeline = None
 
         for name, pipeline in tuned_models.items():
+            if pipeline is None:
+                logger.warning(
+                    f"Skipping {name} — tuning returned None."
+                )
+                continue
 
-            test_pred_log = pipeline.predict(X_test)
-            y_pred = inverse_transform_target(test_pred_log)
+            y_pred = inverse_transform_target(pipeline.predict(X_test))
             y_true = inverse_transform_target(y_test_log)
+            test_mape = mean_absolute_percentage_error(
+                y_true, y_pred
+            ) * 100
 
-            test_mape = mean_absolute_percentage_error(y_true, y_pred)
+            logger.info(
+                f"{name} tuned Test MAPE: {round(test_mape, 2)}%"
+            )
 
             if test_mape < best_test_mape:
                 best_test_mape = test_mape
                 best_model_name = name
                 best_pipeline = pipeline
 
-        logger.info(f"Best Tuned Model: {best_model_name}")
-        logger.info(f"Best Test MAPE: {round(best_test_mape * 100, 2)}%")
+        if best_pipeline is None:
+            logger.error("All models failed tuning. No model saved.")
+            return {}
 
-        # 5. Save Best Model
+        logger.info(f"Best tuned model: {best_model_name}")
+        logger.info(f"Best test MAPE: {round(best_test_mape, 2)}%")
 
+        # Save best model via MAPE-gated persistence
         save_model(
             model_pipeline=best_pipeline,
             model_name=best_model_name,
-            metric=round(best_test_mape * 100, 2),
+            metric=round(best_test_mape, 2),
             filepath="artifacts/best_model.joblib"
         )
 
-        logger.info("Best model saved successfully.")
-        logger.info("Model Building Pipeline Completed Successfully.")
+        logger.info("Model building pipeline completed successfully.")
 
         return {
             "base_results": results_df,
@@ -177,5 +187,8 @@ def run_model_building(fs_df):
         }
 
     except Exception as e:
-        logger.error(f"Model Building failed: {str(e)}", exc_info=True)
+        logger.error(
+            f"Model building pipeline failed: {e}",
+            exc_info=True
+        )
         raise
