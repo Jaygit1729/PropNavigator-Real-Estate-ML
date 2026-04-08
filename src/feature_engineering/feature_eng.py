@@ -1,5 +1,9 @@
+# src/feature_engineering/feature_eng.py
+
 import re
 import ast
+import os
+import joblib
 import pandas as pd
 import numpy as np
 from src.logger_utils import setup_logger
@@ -8,8 +12,8 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import MultiLabelBinarizer
 
 
-logger = setup_logger(__name__,'logs/feature_eng.log')
-logger.info("Logging set up Successfully for Feature Engineering Module!")
+logger = setup_logger(__name__, 'logs/feature_eng.log')
+logger.info("Logging set up successfully for Feature Engineering Module.")
 
 
 sector_mapping = {
@@ -105,12 +109,10 @@ sector_mapping = {
     'block p south city 1': 'sector 41',
     'manesar': 'sector 1',
     'imt manesar': 'sector 1',
-    'imt manesar':'sector 1',
     'sector 1 imt manesar': 'sector 1',
     'sector 1a imt manesar': 'sector 1',
     'pataudi': 'sector 1',
     'pataudi road': 'sector 1',
-    'pataudi road':'sector 1',
     'block s uppals southend': 'sector 49',
     'block b rajendra park': 'sector 105',
     'sector 99a': 'sector 99',
@@ -278,69 +280,68 @@ sector_mapping = {
     'sector 63a': 'sector 63',
     'sector 82a': 'sector 82',
     'block a ashok vihar phase 3 extension': 'sector 3',
-    'block c sushant lok phase  3':'sector 57',
-    'sector 48  49 gurugram':'sector 49',
-    'a block sushant lok phase  3':'sector 43',
-    'block g new palam vihar phase 1':'sector 110',
-    'new':'sector 70'
+    'block c sushant lok phase  3': 'sector 57',
+    'sector 48  49 gurugram': 'sector 49',
+    'a block sushant lok phase  3': 'sector 43',
+    'block g new palam vihar phase 1': 'sector 110',
+    'new': 'sector 70'
 }
 
 
-def _extract_sector(df):
-    
-    """ Extract and clean sector information """
-    
+def _extract_sector(df: pd.DataFrame):
+
+    """Extract and clean sector information from property name."""
+
     df = df.assign(
-
-                sector = lambda df_: df_['property_name']
-                        .str
-                        .split('in')
-                        .str
-                        .get(1)
-                        .str
-                        .replace('Gurgaon', '')
-                        .str
-                        .replace("-","")
-                        .str
-                        .replace(",","")
-                        .str
-                        .strip()
-                        .str
-                        .lower())
-    
+        sector=lambda df_: df_['property_name']
+            .str.split('in')
+            .str.get(1)
+            .str.replace('Gurgaon', '', regex=False)
+            .str.replace("-", "", regex=False)
+            .str.replace(",", "", regex=False)
+            .str.strip()
+            .str.lower()
+    )
     return df
 
 
-def _apply_sector_mapping(df):
-    
-    """ mapping sector values """
-    
+def _apply_sector_mapping(df: pd.DataFrame):
+
+    """Map non-standard sector names to standard sector format."""
+
     df = df.assign(
-        
-        sector = lambda df_: df_['sector'].replace(sector_mapping))
-    
+        sector=lambda df_: df_['sector'].replace(sector_mapping)
+    )
     return df
 
 
-def _process_floornum(df):
+def _process_floornum(df: pd.DataFrame):
 
-    """ Handle floor number transformations"""
-
-    df =  (df.assign(
-
-        floornum = lambda df_: df_['floor_info']
-                            .str
-                            .replace("Lower Ground", "-1", regex=True)
-                            .str
-                            .replace("Ground", "0", regex=True)
-                            .str
-                            .extract(r'(-?\d+)')))
-    
+    """
+    Extracts floor number from floor_info column.
+    - 'Lower Ground' mapped to -1
+    - 'Ground' mapped to 0
+    - All others: first integer extracted
+    """
+    df = df.assign(
+        floornum=lambda df_: df_['floor_info']
+            .str.replace("Lower Ground", "-1", regex=False)
+            .str.replace("Ground", "0", regex=False)
+            .str.extract(r'(-?\d+)')
+    )
     return df
 
-def _process_area_types(df):
-    """Handle area type transformations"""
 
+def _process_area_types(df: pd.DataFrame):
+    """
+    Extracts area values from the areawithtype column into
+    four separate numeric columns:
+    - super_built_up_area
+    - built_up_area
+    - carpet_area
+    - plot_area
+    Values are in sqft. Returns None for non-matching rows.
+    """
     def extract_area(pattern, text):
         if not isinstance(text, str):
             return None
@@ -351,89 +352,114 @@ def _process_area_types(df):
         return None
 
     return (
-        df
-        .assign(
-            super_built_up_area = lambda df_: df_['areawithtype']
-                .apply(lambda x: extract_area(r'([\d,\.]+)\s*sqft\s*\([\d,\.]+\s*sqm\)\s*Super Built-up Area', x)),
-
-            built_up_area = lambda df_: df_['areawithtype']
-                .apply(lambda x: extract_area(r'([\d,\.]+)\s*sqft\s*\([\d,\.]+\s*sqm\)\s*Built-up Area', x)),
-
-            carpet_area = lambda df_: df_['areawithtype']
-                .apply(lambda x: extract_area(r'([\d,\.]+)\s*sqft\s*\([\d,\.]+\s*sqm\)\s*Carpet Area', x)),
-
-            plot_area = lambda df_: df_['areawithtype']
-                .apply(lambda x: extract_area(r'([\d,\.]+)\s*sqft\s*\([\d,\.]+\s*sqm\)\s*Plot Area', x)),
+        df.assign(
+            super_built_up_area=lambda df_: df_['areawithtype']
+                .apply(lambda x: extract_area(
+                    r'([\d,\.]+)\s*sqft\s*\([\d,\.]+\s*sqm\)\s*Super Built-up Area', x
+                )),
+            built_up_area=lambda df_: df_['areawithtype']
+                .apply(lambda x: extract_area(
+                    r'([\d,\.]+)\s*sqft\s*\([\d,\.]+\s*sqm\)\s*Built-up Area', x
+                )),
+            carpet_area=lambda df_: df_['areawithtype']
+                .apply(lambda x: extract_area(
+                    r'([\d,\.]+)\s*sqft\s*\([\d,\.]+\s*sqm\)\s*Carpet Area', x
+                )),
+            plot_area=lambda df_: df_['areawithtype']
+                .apply(lambda x: extract_area(
+                    r'([\d,\.]+)\s*sqft\s*\([\d,\.]+\s*sqm\)\s*Plot Area', x
+                )),
         )
     )
 
 
-def _process_additionalRoom(df):
-
+def _process_additionalRoom(df: pd.DataFrame):
     """
-    Extract boolean flags for additional rooms
+    Creates binary flag columns for each additional room type.
+    1 = room present, 0 = not present or not mentioned.
+    na=False ensures NaN values in additional_room are treated
+    as 0 rather than propagating NaN into the flag columns.
     """
-
     return (
-        df
-        .assign(
-            additionalRoom = df['additional_room'].fillna('Not Available')
-        )
-        .assign(
-            study_room = lambda df_: df_['additional_room'].str.contains('study room', case=False).astype(int),
-            servant_room = lambda df_: df_['additional_room'].str.contains('servant room', case=False).astype(int),
-            store_room = lambda df_: df_['additional_room'].str.contains('store room', case=False).astype(int),
-            pooja_room = lambda df_: df_['additional_room'].str.contains('pooja room', case=False).astype(int),
-            others = lambda df_: df_['additional_room'].str.contains('others', case=False).astype(int),
+        df.assign(
+            study_room=lambda df_: df_['additional_room']
+                .str.contains('study room', case=False, na=False).astype(int),
+            servant_room=lambda df_: df_['additional_room']
+                .str.contains('servant room', case=False, na=False).astype(int),
+            store_room=lambda df_: df_['additional_room']
+                .str.contains('store room', case=False, na=False).astype(int),
+            pooja_room=lambda df_: df_['additional_room']
+                .str.contains('pooja room', case=False, na=False).astype(int),
+            others=lambda df_: df_['additional_room']
+                .str.contains('others', case=False, na=False).astype(int),
         )
     )
 
 
-def _categorize_age_possession(value):
-    
+def _categorize_age_possession(value: str):
+    """
+    Maps raw property age/possession string to a clean category.
+    Categories: New Property, Relatively New, Moderately Old,
+                Old Property, Under Construction, Undefined.
+    """
     if pd.isna(value):
         return "Undefined"
-    
+
     if "0 to 1 Year Old" in value or "Within 6 months" in value or "Within 3 months" in value:
         return "New Property"
-    
+
     if "1 to 5 Year Old" in value:
         return "Relatively New"
-    
+
     if "5 to 10 Year Old" in value:
         return "Moderately Old"
-    
+
     if "10+ Year Old" in value:
         return "Old Property"
-    
+
     if "Under Construction" in value or "By" in value:
         return "Under Construction"
-    
+
     try:
         int(value.split(" ")[-1])
         return "Under Construction"
-    
-    except:
+
+    except (ValueError, IndexError):
+        # ValueError  — int() fails on non-numeric string
+        # IndexError  — split() returns empty list
         return "Undefined"
-    
-def _process_age_possession(df):
-    
-    return df.assign(age_possession_category = lambda df_: df_['property_age'].apply(_categorize_age_possession))
 
 
-def _process_furnish_details(df):
+def _process_age_possession(df: pd.DataFrame):
+
+    """Apply age/possession categorization to the property_age column."""
+    return df.assign(
+        age_possession_category=lambda df_: df_['property_age']
+            .apply(_categorize_age_possession)
+    )
+
+
+def _process_furnish_details(df: pd.DataFrame):
     """
-    Processes the furnishing details and applies KMeans clustering to classify properties
-    into furnishing types: Furnished, Semi-Furnished, and Unfurnished.
+    Classifies properties into Furnished, Semi-Furnished, or Unfurnished
+    using KMeans clustering on furnishing item counts.
+
+    On first run (no saved artifacts), fits KMeans and saves the scaler,
+    model, and cluster-to-label mapping to disk.
+    On subsequent runs, loads saved artifacts so cluster boundaries
+    stay consistent between training and inference — preventing
+    training-serving skew.
     """
+    FURNISH_ARTIFACTS_PATH = "artifacts/furnish_kmeans.joblib"
 
     furnishing_items = [
-        'Fan', 'Exhaust Fan', 'Geyser', 'Light', 'Chimney', 'Wardrobe', 'AC', 'Bed',
-        'Curtains', 'Dining Table', 'Modular Kitchen', 'Microwave', 'Fridge',
-        'Sofa', 'Stove', 'TV', 'Washing Machine', 'Water Purifier'
+        'Fan', 'Exhaust Fan', 'Geyser', 'Light', 'Chimney', 'Wardrobe',
+        'AC', 'Bed', 'Curtains', 'Dining Table', 'Modular Kitchen',
+        'Microwave', 'Fridge', 'Sofa', 'Stove', 'TV',
+        'Washing Machine', 'Water Purifier'
     ]
 
-    # Step 1: Clean the furnishDetails column
+    # Step 1 — clean raw furnishing_details text
     df = df.assign(
         cleaned_furnishDetails=lambda df_: df_['furnishing_details'].apply(
             lambda x: (
@@ -444,14 +470,16 @@ def _process_furnish_details(df):
         )
     )
 
-    # Step 2: Separate known and unknown
-
+    # Step 2 — split into known and unknown groups
     known_df = df[df['cleaned_furnishDetails'] != "No Info"].copy()
     unknown_df = df[df['cleaned_furnishDetails'] == "No Info"].copy()
 
-    # Step 3: Feature extraction helper
-
-    def get_furnishing_count(details, furnishing):
+    # Step 3 — count furnishing items per property
+    def get_furnishing_count(details: str, furnishing: str) -> int:
+        """
+        Returns count of a specific furnishing item from the details string.
+        Returns 0 if item is explicitly absent or details are unavailable.
+        """
         if not isinstance(details, str) or details.strip().lower() == "no info":
             return 0
         if f"No {furnishing}" in details:
@@ -467,121 +495,116 @@ def _process_furnish_details(df):
                     return 1
         return 0
 
-    # Step 4: Create furnishing item features
-
     for item in furnishing_items:
-        known_df[item] = known_df['cleaned_furnishDetails'].apply(lambda x: get_furnishing_count(x, item))
+        known_df[item] = known_df['cleaned_furnishDetails'].apply(
+            lambda x, i=item: get_furnishing_count(x, i)
+        )
 
-    # Step 5: KMeans clustering
+    # Step 4 — load saved artifacts or fit fresh on first run
+    if os.path.exists(FURNISH_ARTIFACTS_PATH):
+        furnish_artifacts = joblib.load(FURNISH_ARTIFACTS_PATH)
+        scaler = furnish_artifacts["scaler"]
+        kmeans = furnish_artifacts["kmeans"]
+        cluster_label_map = furnish_artifacts["cluster_label_map"]
+        scaled_known = scaler.transform(known_df[furnishing_items])
+        known_df['furnish_cluster'] = kmeans.predict(scaled_known)
+        logger.info("Loaded saved furnishing KMeans artifacts.")
 
-    scaler = StandardScaler()
-    scaled_known = scaler.fit_transform(known_df[furnishing_items])
+    else:
+        scaler = StandardScaler()
+        scaled_known = scaler.fit_transform(known_df[furnishing_items])
 
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    known_df['furnish_cluster'] = kmeans.fit_predict(scaled_known)
+        kmeans = KMeans(n_clusters=3, random_state=42)
+        known_df['furnish_cluster'] = kmeans.fit_predict(scaled_known)
 
-    # Step 6: Analyze cluster centroids
+        # Map cluster numbers to labels based on total item counts
+        # Highest total items = Furnished, lowest = Unfurnished
+        cluster_centroids = pd.DataFrame(
+            kmeans.cluster_centers_,
+            columns=furnishing_items
+        )
+        cluster_centroids['total_items'] = cluster_centroids.sum(axis=1)
 
-    cluster_centroids = pd.DataFrame(kmeans.cluster_centers_, columns=furnishing_items)
-    cluster_centroids['total_items'] = cluster_centroids.sum(axis=1)
-    cluster_centroids.index.name = "cluster_id"
+        cluster_label_map = (
+            cluster_centroids['total_items']
+            .sort_values(ascending=False)
+            .reset_index()
+            .rename(columns={'index': 'cluster_id'})
+            .assign(furnishing_type=['Furnished', 'Semi-Furnished', 'Unfurnished'])
+            .set_index('cluster_id')['furnishing_type']
+            .to_dict()
+        )
 
-    # Step 7: Map clusters to labels
+        os.makedirs("artifacts", exist_ok=True)
+        joblib.dump({
+            "scaler": scaler,
+            "kmeans": kmeans,
+            "cluster_label_map": cluster_label_map
+        }, FURNISH_ARTIFACTS_PATH)
+        logger.info("Fitted and saved furnishing KMeans artifacts.")
 
-    cluster_map = (
-        cluster_centroids['total_items']
-        .sort_values(ascending=False)
-        .reset_index()
-        .assign(furnishing_type=['Furnished', 'Semi-Furnished', 'Unfurnished'])
-    )
-
-    known_df = known_df.merge(
-        cluster_map[['cluster_id', 'furnishing_type']],
-        left_on='furnish_cluster',
-        right_on='cluster_id',
-        how='left'
-    )
-
-    # Step 8: Assign unknowns
-
+    # Step 5 — label and merge back
+    known_df['furnishing_type'] = known_df['furnish_cluster'].map(cluster_label_map)
     unknown_df['furnishing_type'] = 'Unfurnished'
 
-    # Step 9: Combine all back
-
     final_df = pd.concat([known_df, unknown_df], axis=0, sort=False)
-
-    # Step 10: Merge back on property_id to ensure alignment
-
     final_df = final_df[['property_id', 'furnishing_type']]
     df = df.merge(final_df, on='property_id', how='left')
 
     return df
 
 
-def _compute_luxury_score(df):
+def _compute_luxury_score(df: pd.DataFrame):
     """
     Computes a price-driven luxury score based on observed
     pricing premium of each amenity.
+
+    Steps:
+        1. Parse features column from string to list
+        2. Multi-hot encode all amenities
+        3. Compute price premium per amenity vs median price_per_sqft
+        4. Normalize weights to 0-1 range
+        5. Compute final luxury score using log1p to reduce skew
     """
-
     try:
-        
-
         df = df.copy()
 
-        # Step 1: Parse amenities list safely
-
+        # Parse amenities list safely
         df["features_list"] = df["features"].apply(
             lambda x: ast.literal_eval(x) if pd.notna(x) else []
         )
 
-        # Step 2: Multi-hot encode amenities
-        
-
+        # Multi-hot encode amenities
         mlb = MultiLabelBinarizer()
         binary_features = mlb.fit_transform(df["features_list"])
-
         features_encoded = pd.DataFrame(
             binary_features,
             columns=mlb.classes_,
             index=df.index
         )
 
-        
-        # Step 3: Compute price-driven premium weights
-
+        # Compute price-driven premium weights
         amenity_weights = {}
-
         for col in features_encoded.columns:
-
             present_mask = features_encoded[col] == 1
             absent_mask = features_encoded[col] == 0
 
-            # Ignore extremely rare amenities
+            # Ignore extremely rare amenities (fewer than 30 properties)
             if present_mask.sum() > 30:
-
                 median_present = df.loc[present_mask, "price_per_sqft"].median()
                 median_absent = df.loc[absent_mask, "price_per_sqft"].median()
-
                 premium = median_present - median_absent
-
-                # Only keep positive pricing impact
                 amenity_weights[col] = max(premium, 0)
-
             else:
                 amenity_weights[col] = 0
 
         weights_series = pd.Series(amenity_weights)
 
-        # Step 4: Normalize weights
-
+        # Normalize weights to 0-1 range
         if weights_series.max() > 0:
             weights_series = weights_series / weights_series.max()
 
-       
-        # Step 5: Compute final luxury score
-        
-
+        # log1p reduces skew from properties with many amenities
         df["luxury_score"] = np.log1p(
             features_encoded.mul(weights_series, axis=1).sum(axis=1)
         )
@@ -589,31 +612,31 @@ def _compute_luxury_score(df):
         return df
 
     except Exception as e:
-        print(f"Error computing luxury score: {e}")
-        return df
-
-    except Exception as e:
         logger.error(f"Luxury score computation failed: {e}")
         return df
 
 
-
-def _reorder_columns(df):
+def _reorder_columns(df: pd.DataFrame):
+    """Reorder columns into a clean, logical final structure."""
     desired_order = [
-         'property_id','property_type','link','society', 'sector', 'price_in_cr', 'price_per_sqft',
-         'areawithtype', 'plot_area','super_built_up_area', 'built_up_area','carpet_area',
-         'bedrooms','bathrooms','balcony','floornum','study_room', 'servant_room', 'store_room', 
-         'pooja_room', 'others','facing','furnishing_type', 'age_possession_category', 'features',
-         'luxury_score'
-    ]      
-    
+        'property_id', 'property_type', 'link', 'society', 'sector',
+        'price_in_cr', 'price_per_sqft', 'areawithtype', 'plot_area',
+        'super_built_up_area', 'built_up_area', 'carpet_area',
+        'bedrooms', 'bathrooms', 'balcony', 'floornum',
+        'study_room', 'servant_room', 'store_room', 'pooja_room', 'others',
+        'facing', 'furnishing_type', 'age_possession_category',
+        'features', 'luxury_score'
+    ]
     return df[desired_order]
 
 
-def feature_engineering(df):
-    """ Main feature engineering pipeline """
-
+def feature_engineering(df: pd.DataFrame):
+    """
+    Main feature engineering pipeline. Runs all transformations
+    in sequence using pandas pipe for readability.
+    """
     try:
+        logger.info(f"Feature engineering started — input shape: {df.shape}")
 
         df = (
             df
@@ -627,9 +650,8 @@ def feature_engineering(df):
             .pipe(_compute_luxury_score)
             .drop(
                 columns=[
-                    'property_name',
-                    'additional_room', 'property_age', 'nearby_location',
-                     'furnishing_details',
+                    'property_name', 'additional_room', 'property_age',
+                    'nearby_location', 'furnishing_details',
                     'cleaned_furnishDetails', 'features_list'
                 ],
                 errors='ignore'
@@ -637,7 +659,7 @@ def feature_engineering(df):
             .pipe(_reorder_columns)
         )
 
-        logger.info(f"Feature engineering completed. Final shape: {df.shape}")
+        logger.info(f"Feature engineering completed — output shape: {df.shape}")
         return df
 
     except Exception as e:

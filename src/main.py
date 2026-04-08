@@ -65,7 +65,7 @@ def main():
             return
         logger.info("Datasets merged successfully.")
 
-        """
+        
         # 5. Feature Engineering
 
         logger.info("Step 5: Performing feature engineering...")
@@ -75,7 +75,7 @@ def main():
             return
         save_data(fe_df, "data/fe/featured_properties.csv")
         logger.info("Feature engineering completed and data saved.")
-   
+        """
          # 6. Preprocessing
         
         logger.info("Step 6: Preprocessing data...")
