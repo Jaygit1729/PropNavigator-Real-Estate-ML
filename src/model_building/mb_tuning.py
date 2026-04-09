@@ -46,14 +46,17 @@ def get_param_grid(model_name: str):
         }
     elif model_name == "XGBoost":
         return {
-            "regressor__learning_rate": sp_uniform(0.01, 0.05),
-            "regressor__n_estimators": sp_randint(800, 1600),
-            "regressor__max_depth": sp_randint(3, 6),
-            "regressor__subsample": sp_uniform(0.7, 0.3),
-            "regressor__colsample_bytree": sp_uniform(0.7, 0.3),
-            "regressor__reg_alpha": [0, 0.1, 1, 5],
-            "regressor__reg_lambda": [0.5, 1, 5]
-        }
+                "regressor__learning_rate": sp_uniform(0.01, 0.05),
+                "regressor__n_estimators": sp_randint(500, 1000),     # ← middle ground
+                "regressor__max_depth": sp_randint(3, 6),
+                "regressor__subsample": sp_uniform(0.6, 0.4),
+                "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
+                "regressor__reg_alpha": [0.1, 0.5, 1, 5],            # ← moderate
+                "regressor__reg_lambda": [1, 5, 10],                  # ← moderate
+                "regressor__min_child_weight": sp_randint(3, 8)       # ← keep this
+            }
+        
+            
     elif model_name == "SVR":
         return {
             "regressor__C": sp_uniform(1, 100),
@@ -99,15 +102,15 @@ def tune_model(
         kf = KFold(n_splits=5, shuffle=True, random_state=42)
 
         random_search = RandomizedSearchCV(
-            estimator=pipeline,
-            param_distributions=param_grid,
-            n_iter=25,
-            scoring=neg_mape_scorer,
-            cv=kf,
-            verbose=1,
-            random_state=42,
-            n_jobs=-1
-        )
+                    estimator=pipeline,
+                    param_distributions=param_grid,
+                    n_iter=50,              # ← increase from 25 to 50
+                    scoring=neg_mape_scorer,
+                    cv=kf,
+                    verbose=1,
+                    random_state=42,
+                    n_jobs=-1
+                                        )
 
         random_search.fit(X_train, y_train_log)
         best_model = random_search.best_estimator_

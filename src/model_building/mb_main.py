@@ -24,7 +24,7 @@ logger = setup_logger(__name__, "logs/mb_main.log")
 TARGET_COL = "price_in_cr"
 
 
-def run_model_building(fs_df: pd.DataFrame) -> dict:
+def run_model_building(fs_df: pd.DataFrame):
     """
     Full model building pipeline:
         1. Splits data with stratification on price bins
@@ -122,7 +122,6 @@ def run_model_building(fs_df: pd.DataFrame) -> dict:
         # tuning run builds its preprocessor from actual columns
         tuned_models = {}
         for name, (model, _) in model_dict.items():
-            logger.info(f"Starting tuning for {name}.")
             tuned_models[name] = tune_model(
                 model_name=name,
                 model=model,

@@ -25,7 +25,7 @@ def scorer(
     X_test: pd.DataFrame,
     y_train_log: pd.Series,
     y_test_log: pd.Series
-) -> dict:
+):
     """
     Builds a pipeline, runs cross-validation on training data,
     fits on full training set, then evaluates on both train and test.

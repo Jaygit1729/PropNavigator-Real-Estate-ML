@@ -75,7 +75,7 @@ def main():
             return
         save_data(fe_df, "data/fe/featured_properties.csv")
         logger.info("Feature engineering completed and data saved.")
-        """
+        
          # 6. Preprocessing
         
         logger.info("Step 6: Preprocessing data...")
@@ -85,7 +85,7 @@ def main():
             return
         save_data(processed_df, "data/pp/preprocessed_properties.csv")
         logger.info("Preprocessing completed and data saved.")
-    
+        
         
         # 7. Feature Selection
         
@@ -97,7 +97,7 @@ def main():
         save_data(fs_df, "data/fs/feature_selected_properties.csv")
         save_data(importance_df, "data/fs/feature_importance_table.csv")
         logger.info("Feature selection completed and data saved.") 
-
+        
         # 8. Model Building
         
         logger.info("Step 8-11: Executing Model Building Pipeline...")
@@ -105,7 +105,6 @@ def main():
         
         logger.info("Pipeline finished successfully.") 
         
-        """
 
     except Exception as e:
         logger.error(f"Critical pipeline failure: {str(e)}", exc_info=True) 

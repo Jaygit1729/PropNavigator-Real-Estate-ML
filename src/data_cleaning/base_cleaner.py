@@ -74,6 +74,10 @@ def apply_column_cleaning(df: pd.DataFrame):
 
                 facing=lambda df_: df_['facing']
                     .fillna("not available")
+                    .str.lower(),
+
+                society=lambda df_: df_['society']
+                    .str.strip()
                     .str.lower()
             )
         )

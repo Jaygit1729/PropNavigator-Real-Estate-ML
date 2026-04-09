@@ -196,6 +196,42 @@ def impute_age_possession_category(df: pd.DataFrame):
     logger.info("Applied 3-pass mode-based imputation for age_possession_category.")
     return df
 
+def cap_rare_societies(df: pd.DataFrame, min_count: int = 5) -> pd.DataFrame:
+    """
+    Replaces rare society values with 'Other' to reduce cardinality.
+    Societies appearing fewer than min_count times are grouped together.
+
+    Why this matters:
+        With 970 unique societies and ~4400 training rows, many societies
+        appear only 1-2 times. Tree models memorize these rare patterns
+        during training but cannot generalize them to test data — causing
+        overfitting. Grouping rare societies into 'Other' forces the model
+        to rely on generalizable patterns instead.
+
+    Args:
+        df:        Preprocessed dataframe with society column
+        min_count: Minimum occurrences to keep a society label.
+                   Societies below this threshold become 'Other'.
+    """
+    df = df.copy()
+
+    society_counts = df['society'].value_counts()
+    rare_societies = society_counts[society_counts < min_count].index
+    original_count = df['society'].nunique()
+
+    df['society'] = df['society'].apply(
+        lambda x: x if x not in rare_societies else 'Other'
+    )
+
+    new_count = df['society'].nunique()
+    logger.info(
+        f"Capped rare societies — cardinality reduced from "
+        f"{original_count} to {new_count} "
+        f"({len(rare_societies)} societies grouped as 'Other', "
+        f"threshold={min_count})."
+    )
+    return df
+
 
 def create_luxury_category(df: pd.DataFrame):
     """Bins luxury_score into 3 quantile-based categories."""
@@ -263,6 +299,8 @@ def preprocessing(df: pd.DataFrame):
             .pipe(remove_price_per_sqft_outliers)
             .pipe(fill_missing_floornum)
             .pipe(impute_age_possession_category)
+            .pipe(cap_rare_societies)              # ← add here
+
             .pipe(create_luxury_category)
             .pipe(categorize_floornum)
             .drop(

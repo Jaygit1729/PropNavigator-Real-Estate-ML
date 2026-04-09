@@ -16,12 +16,6 @@ def get_feature_lists(X):
     changes which columns are selected, the preprocessor adapts
     automatically without any manual updates.
 
-    Args:
-        X: Feature dataframe after feature selection
-
-    Returns:
-        numerical_features: list of numeric column names
-        categorical_features: list of categorical/object column names
     """
     numerical_features = X.select_dtypes(
         include=['int64', 'float64']

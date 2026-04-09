@@ -21,15 +21,6 @@ def column_cleaning(df: pd.DataFrame):
         if df is None:
             return None
 
-        # Step 2 — residential apartments have a society column
-        # that needs its own standardization
-
-        df = df.assign(
-            society=lambda df_: df_['society']
-                .str.strip()
-                .str.lower()
-        )
-
         logger.info("Residential Apartment column cleaning done.")
         return df
 
