@@ -1,54 +1,126 @@
-import streamlit as st
+import os
+import ast
 import pandas as pd
 import plotly.express as px
 from wordcloud import WordCloud
-import ast
-import os
+import streamlit as st
 
+
+# ---------------------------------------------------------------------------
+# Page Config
+# ---------------------------------------------------------------------------
 
 st.set_page_config(
     page_title="Gurgaon Real Estate Analytics",
     layout="wide"
 )
 
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+BASE_DIR  = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+DATA_PATH = os.path.join(BASE_DIR, "data", "analytics_module", "gurgaon_property_geomap.csv")
+WC_PATH   = os.path.join(BASE_DIR, "data", "analytics_module", "wordcloud.csv")
+
+# Minimum listings a sector must have to appear in price dispersion heatmap
+MIN_LISTINGS_FOR_DISPERSION = 15
+
+# Area segment bin edges and labels for Section 5
+AREA_BINS   = [0, 1000, 2200, 3500, float("inf")]
+AREA_LABELS = ["Small (<1000)", "Mid (1000–2200)", "Large (2200–3500)", "Luxury (3500+)"]
+
+PROPERTY_TYPES = ["All", "Independent House", "Independent Builder Floor", "Flat"]
+
+
+# ---------------------------------------------------------------------------
+# Loaders
+# ---------------------------------------------------------------------------
+
+@st.cache_data(show_spinner=False)
+def load_dataframe(path: str) -> pd.DataFrame:
+    return pd.read_csv(path)
+
+
+@st.cache_data(show_spinner=False)
+def load_wordcloud_data(path: str) -> pd.DataFrame:
+    return pd.read_csv(path)[["sector", "features_list"]]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def filter_by_property_type(df: pd.DataFrame, property_type: str) -> pd.DataFrame:
+    """Returns full df if 'All' selected, else filters by property type."""
+    if property_type == "All":
+        return df
+    return df[df["property_type"] == property_type]
+
+
+def add_area_segment(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Creates area_segment column on a copy of df.
+    Always operates on a copy — never mutates the cached original.
+    """
+    df = df.copy()
+    df["area_segment"] = pd.cut(
+        df["total_area_sqft"],
+        bins=AREA_BINS,
+        labels=AREA_LABELS
+    )
+    return df
+
+
+def extract_amenity_words(wc_df: pd.DataFrame, sector: str) -> list:
+    """
+    Extracts all amenity words for a given sector (or all sectors).
+    Returns a flat list of amenity strings.
+    """
+    filtered = wc_df if sector == "All" else wc_df[wc_df["sector"] == sector]
+    words = []
+    for lst in filtered["features_list"].dropna().apply(ast.literal_eval):
+        words.extend(lst)
+    return words
+
+
+def get_sector_options(wc_df: pd.DataFrame) -> list:
+    """Returns sorted list of sectors with 'All' as first option."""
+    return ["All"] + sorted(wc_df["sector"].dropna().unique().tolist())
+
+
+# ---------------------------------------------------------------------------
+# Load Data
+# ---------------------------------------------------------------------------
+
+df    = load_dataframe(DATA_PATH)
+wc_df = load_wordcloud_data(WC_PATH)
+
+
+# ---------------------------------------------------------------------------
+# UI — Header
+# ---------------------------------------------------------------------------
+
 st.header("📊 Gurgaon Real Estate Analytics")
 st.caption(
-    """
-    A structured analytics module to understand **market structure, pricing behavior,
-    configuration trends, and value dynamics** across Gurgaon’s residential market.
-    """
+    "A structured analytics module to understand **market structure, pricing behavior, "
+    "configuration trends, and value dynamics** across Gurgaon's residential market."
 )
-
-# Data Load
-
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
-DATA_PATH = os.path.join(
-    BASE_DIR,
-    "data",
-    "analytics_module",
-    "gurgaon_property_geomap.csv"
-)
-
-WC_PATH = os.path.join(
-    BASE_DIR,
-    "data",
-    "analytics_module",
-    "wordcloud.csv"
-)
-
-# Load Data
-
-df = pd.read_csv(DATA_PATH)
-wc_df = pd.read_csv(WC_PATH)[["sector", "features_list"]]
-
 st.divider()
 
-# Section 1 — Market Structure
+
+# ---------------------------------------------------------------------------
+# Section 1 — Market Structure: Property Mix by Sector
+# ---------------------------------------------------------------------------
 
 st.subheader("🏘️ Market Structure Overview")
-
-# ---------- Property Mix by Sector ----------
+st.caption("Shows **total supply and property-type composition** within each sector.")
+st.info(
+    "💡 **How to read this:** Longer bars indicate more active sectors. "
+    "Color segments reveal whether a sector is flat-heavy, builder-floor dominant, or mixed."
+)
 
 sector_total = (
     df.groupby("sector")
@@ -67,19 +139,6 @@ sector_mix["pct_of_sector"] = (
     sector_mix["listing_count"] / sector_mix["total_listings"] * 100
 ).round(1)
 
-st.caption(
-    """
-    Shows **total supply and property-type composition** within each sector.
-    This replaces separate “sector count” charts by embedding volume directly into mix.
-    """
-)
-
-st.info(
-    "💡 **How to read this:** "
-    "Longer bars indicate more active sectors. "
-    "Color segments reveal whether a sector is flat-heavy, builder-floor dominant, or mixed."
-)
-
 fig_mix = px.bar(
     sector_mix,
     x="listing_count",
@@ -89,9 +148,9 @@ fig_mix = px.bar(
     color_discrete_sequence=px.colors.qualitative.Bold,
     custom_data=["property_type", "total_listings", "pct_of_sector"],
     labels={
-        "listing_count": "Listings",
-        "sector": "Sector",
-        "property_type": "Property Type"
+        "listing_count" : "Listings",
+        "sector"        : "Sector",
+        "property_type" : "Property Type"
     }
 )
 
@@ -113,10 +172,18 @@ fig_mix.update_layout(
 
 st.plotly_chart(fig_mix, use_container_width=True)
 
-# Section 2 — Price Stability 
+
+# ---------------------------------------------------------------------------
+# Section 2 — Price Dispersion Heatmap
+# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🔥 Sector Price Dispersion")
+st.caption("Uses **IQR** to highlight **price volatility within sectors**.")
+st.info(
+    "💡 **How to read this:** Darker sectors indicate **high price uncertainty or mixed inventory**. "
+    "Lighter sectors suggest **stable and predictable pricing**."
+)
 
 price_dispersion = (
     df.groupby("sector")
@@ -129,19 +196,9 @@ price_dispersion = (
 )
 
 price_dispersion["iqr"] = price_dispersion["p75"] - price_dispersion["p25"]
-price_dispersion = price_dispersion[price_dispersion["listings"] >= 15]
-
-st.caption(
-    """
-    Uses **interquartile range (IQR)** to highlight **price volatility within sectors**.
-    """
-)
-
-st.info(
-    "💡 **How to read this:** "
-    "Darker sectors indicate **high price uncertainty or mixed inventory**. "
-    "Lighter sectors suggest **stable and predictable pricing**."
-)
+price_dispersion = price_dispersion[
+    price_dispersion["listings"] >= MIN_LISTINGS_FOR_DISPERSION
+]
 
 fig_disp = px.imshow(
     price_dispersion
@@ -155,17 +212,16 @@ fig_disp = px.imshow(
 fig_disp.update_layout(height=800)
 st.plotly_chart(fig_disp, use_container_width=True)
 
-# Section 3 — Property type Configuration
+
+# ---------------------------------------------------------------------------
+# Section 3 — Bedroom × Property Type Configuration Heatmap
+# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🧩 Bedroom × Property Type Configuration")
+st.caption("Normalized heatmap showing **dominant bedroom configurations** within each property type.")
 
-bhk_df = df[
-    (df["bedrooms"].between(1, 6)) &
-    (df["property_type"].isin(
-        ["Independent House", "Independent Builder Floor", "Flat"]
-    ))
-]
+bhk_df = df[df["bedrooms"].between(1, 6)]
 
 bhk_matrix = (
     bhk_df
@@ -185,13 +241,6 @@ heatmap_df = bhk_matrix.pivot(
     values="pct"
 ).fillna(0)
 
-st.caption(
-    """
-    Normalized heatmap showing **dominant bedroom configurations**
-    within each property type.
-    """
-)
-
 fig_bhk = px.imshow(
     heatmap_df,
     text_auto=True,
@@ -203,22 +252,17 @@ fig_bhk = px.imshow(
 fig_bhk.update_layout(height=400)
 st.plotly_chart(fig_bhk, use_container_width=True)
 
-# Section 4 — Pricing Distribution
+
+# ---------------------------------------------------------------------------
+# Section 4 — Price Distribution by Property Type (Violin)
+# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("📊 Price Distribution by Property Type")
-
-st.caption(
-    """
-    Violin plots compare **price density, spread, and outliers**
-    across property types.
-    """
-)
+st.caption("Violin plots compare **price density, spread, and outliers** across property types.")
 
 fig_violin = px.violin(
-    df[df["property_type"].isin(
-        ["Independent House", "Independent Builder Floor", "Flat"]
-    )],
+    df,
     x="property_type",
     y="price_in_cr",
     color="property_type",
@@ -230,26 +274,22 @@ fig_violin = px.violin(
 fig_violin.update_layout(height=550, showlegend=False)
 st.plotly_chart(fig_violin, use_container_width=True)
 
-# Section 5 — Area segment Value Analysis
+
+# ---------------------------------------------------------------------------
+# Section 5 — Area Segment vs Price Efficiency
+# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("📐 Area Segment vs Price Efficiency")
-
-df["area_segment"] = pd.cut(
-    df["total_area_sqft"],
-    bins=[0, 1000, 2200, 3500, df["total_area_sqft"].max()],
-    labels=["Small (<1000)", "Mid (1000–2200)", "Large (2200–3500)", "Luxury (3500+)"]
-)
-
 st.caption(
-    """
-    Shows **price-per-sqft behavior across home size segments**.
-    Helps identify where buyers pay premiums vs get efficiency.
-    """
+    "Shows **price-per-sqft behavior across home size segments**. "
+    "Helps identify where buyers pay premiums vs get efficiency."
 )
+
+df_with_segments = add_area_segment(df)
 
 fig_area = px.box(
-    df.dropna(subset=["area_segment"]),
+    df_with_segments.dropna(subset=["area_segment"]),
     x="area_segment",
     y="price_per_sqft",
     color="area_segment",
@@ -260,24 +300,39 @@ fig_area.update_layout(height=550, showlegend=False)
 st.plotly_chart(fig_area, use_container_width=True)
 
 
+# ---------------------------------------------------------------------------
 # Section 6 — Geomap
+# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🔍 Listing Exploration using Geomap")
 
-
-ptype = st.selectbox(
+ptype_map = st.selectbox(
     "Select Property Type (Map)",
-    ["All", "Independent House", "Independent Builder Floor", "Flat"]
+    PROPERTY_TYPES,
+    key="ptype_map"
 )
 
-map_df = df if ptype == "All" else df[df["property_type"] == ptype]
+map_df = filter_by_property_type(df, ptype_map)
 
 geo_df = (
     map_df.groupby("sector", as_index=False)
     .mean(numeric_only=True)[
         ["sector", "price_per_sqft", "total_area_sqft", "latitude", "longitude"]
     ]
+)
+
+st.caption(
+    f"This map shows **average property prices and sizes** for **{ptype_map}** "
+    "across Gurgaon sectors.\n\n"
+    "- **Color** : Average Price per Sqft\n"
+    "- **Bubble size** : Average Property Size (In SQFT)\n"
+    "- Each point corresponds to a **sector-level aggregation**"
+)
+
+st.info(
+    "💡 **How to read this map:** Darker sectors indicate higher average price per sqft. "
+    "Larger circles represent sectors with bigger average property sizes."
 )
 
 fig_map = px.scatter_map(
@@ -287,79 +342,55 @@ fig_map = px.scatter_map(
     color="price_per_sqft",
     size="total_area_sqft",
     size_max=20,
-    zoom=11,  
+    zoom=11,
     map_style="open-street-map",
     color_continuous_scale=px.colors.cyclical.IceFire,
-    
-    
-    hover_name="sector",  
+    hover_name="sector",
     hover_data={
-        "latitude": False,     
-        "longitude": False,
-        "price_per_sqft": ":.2f",    
-        "total_area_sqft": ":.0f"    
+        "latitude"      : False,
+        "longitude"     : False,
+        "price_per_sqft": ":.2f",
+        "total_area_sqft": ":.0f"
     },
     labels={
-        "price_per_sqft": "Avg Price/Sqft",
+        "price_per_sqft" : "Avg Price/Sqft",
         "total_area_sqft": "Avg Area (Sqft)"
     }
 )
 
 fig_map.update_layout(
-    
     width=1000,
     height=600,
-    margin=dict(l=0, r=0, t=30, b=0) 
+    margin=dict(l=0, r=0, t=30, b=0)
 )
 
-st.caption(
-    
-    f"""
-    This map shows **average property prices and sizes** for **{ptype}**
-    across Gurgaon sectors.
-    
-    - **Color**  :   **Average Price per Sqft**
-    - **Bubble size** :  **Average Property Size(In SQFT)**
-    - Each point corresponds to a **sector-level aggregation**
-    """
-)
-
-st.info(
-    "💡 **How to read this map:** "
-    "Darker sectors indicate higher average price per sqft. "
-    "Larger circles represent sectors with bigger average property sizes.")
 st.plotly_chart(fig_map, use_container_width=True)
 
-# Section : 7 - Amenities Wordcloud 
 
+# ---------------------------------------------------------------------------
+# Section 7 — Amenities Word Cloud
+# ---------------------------------------------------------------------------
 
-sector = st.selectbox(
+st.divider()
+st.subheader("☁️ Common Amenities by Sector")
+
+sector_wc = st.selectbox(
     "Select Sector (Amenities)",
-    ["All"] + sorted(wc_df["sector"].dropna().unique())
+    get_sector_options(wc_df),
+    key="sector_wc"
 )
 
-wc_filtered = wc_df if sector == "All" else wc_df[wc_df["sector"] == sector]
-
-words = []
-for lst in wc_filtered["features_list"].dropna().apply(ast.literal_eval):
-    words.extend(lst)
-
-st.subheader(f"📍  Common Amenities — {sector}")
+words = extract_amenity_words(wc_df, sector_wc)
 
 st.caption(
-    f"""
-    This word cloud highlights the **most commonly mentioned amenities**
-    for properties in **{sector}**.
-
-    - **Larger words** indicate amenities that appear more frequently in listings
-    - Captures **society-level and property-level features**
-    - Aggregated across all properties in the selected sector
-    """
+    f"This word cloud highlights the **most commonly mentioned amenities** "
+    f"for properties in **{sector_wc}**.\n\n"
+    "- **Larger words** indicate amenities that appear more frequently\n"
+    "- Aggregated across all properties in the selected sector"
 )
 
 st.info(
-    "💡 **How to read this:** "
-    "Amenities that appear larger are more prevalent in listings, "
+    "💡 **How to read this:** Amenities that appear larger are more prevalent in listings, "
     "indicating common facilities or selling points emphasized by builders."
 )
 
@@ -370,33 +401,34 @@ if words:
         background_color="white"
     ).generate(" ".join(words))
 
-
     st.image(wc.to_array(), use_container_width=True)
 
+else:
+    st.warning("No amenity data available for the selected sector.")
 
-# Section 8 — Area vs Price
+
+# ---------------------------------------------------------------------------
+# Section 8 — Area vs Price Scatter
+# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🔎 Area vs Price — Micro Price Behavior")
 
-scatter_prop = st.selectbox(
+ptype_scatter = st.selectbox(
     "Select Property Type (Scatter)",
-    ["All", "Independent House", "Independent Builder Floor", "Flat"],
-    key="scatter_prop"
+    PROPERTY_TYPES,
+    key="ptype_scatter"
 )
 
-scatter_df = df if scatter_prop == "All" else df[df["property_type"] == scatter_prop]
+scatter_df = filter_by_property_type(df, ptype_scatter)
 
 st.caption(
-    """
-    This scatter plot shows **how price scales with size**, while highlighting
-    **bedroom-driven clustering and anomalies**.
-    """
+    "This scatter plot shows **how price scales with size**, while highlighting "
+    "**bedroom-driven clustering and anomalies**."
 )
 
 st.info(
-    "💡 **How to read this:** "
-    "Each point is a listing. Vertical stacks indicate standardized layouts, "
+    "💡 **How to read this:** Each point is a listing. Vertical stacks indicate standardized layouts, "
     "while isolated points signal **overpriced or luxury outliers**."
 )
 
@@ -409,8 +441,8 @@ fig_scatter = px.scatter(
     opacity=0.75,
     labels={
         "total_area_sqft": "Total Area (Sqft)",
-        "price_in_cr": "Price (Cr)",
-        "bedrooms": "Bedrooms"
+        "price_in_cr"    : "Price (Cr)",
+        "bedrooms"       : "Bedrooms"
     }
 )
 
@@ -426,29 +458,29 @@ fig_scatter.update_yaxes(showgrid=True, gridcolor="rgba(200,200,200,0.3)")
 st.plotly_chart(fig_scatter, use_container_width=True)
 
 
-# Section 9 - Bedroom-wise Price Distribution
+# ---------------------------------------------------------------------------
+# Section 9 — Bedroom-wise Price Distribution
+# ---------------------------------------------------------------------------
 
+st.divider()
 st.subheader("📦 Price Distribution by Bedroom Configuration")
 
-box_prop = st.selectbox(
+ptype_box = st.selectbox(
     "Select Property Type (Bedroom Pricing)",
-    ["All", "Independent House", "Independent Builder Floor", "Flat"],
-    key="box_prop"
+    PROPERTY_TYPES,
+    key="ptype_box"
 )
 
-box_df = df if box_prop == "All" else df[df["property_type"] == box_prop]
-box_df = box_df[box_df["bedrooms"].between(1, 4)]  # keep readable
+box_df = filter_by_property_type(df, ptype_box)
+box_df = box_df[box_df["bedrooms"].between(1, 4)]
 
 st.caption(
-    """
-    Shows **price spread and median behavior** across bedroom configurations.
-    Useful to identify **sweet spots vs diminishing returns**.
-    """
+    "Shows **price spread and median behavior** across bedroom configurations. "
+    "Useful to identify **sweet spots vs diminishing returns**."
 )
 
 st.info(
-    "💡 **How to read this:** "
-    "If price jumps sharply from 2→3 BHK but flattens after, "
+    "💡 **How to read this:** If price jumps sharply from 2→3 BHK but flattens after, "
     "it signals **demand saturation** beyond a configuration."
 )
 
@@ -459,59 +491,49 @@ fig_box = px.box(
     color="bedrooms",
     color_discrete_sequence=px.colors.qualitative.Set2,
     labels={
-        "bedrooms": "Bedrooms",
+        "bedrooms"   : "Bedrooms",
         "price_in_cr": "Price (Cr)"
     }
 )
 
-fig_box.update_layout(
-    height=500,
-    showlegend=False
-)
-
+fig_box.update_layout(height=500, showlegend=False)
 st.plotly_chart(fig_box, use_container_width=True)
 
 
-# Section 10 -  Bedroom Distribution
+# ---------------------------------------------------------------------------
+# Section 10 — Bedroom Distribution Pie Chart
+# ---------------------------------------------------------------------------
 
+st.divider()
 st.subheader("🛏️ Bedroom Distribution Across Listings")
 
 st.caption(
-    """
-    This chart shows the **distribution of property listings by bedroom count**
-    across the selected dataset.
-
-    - Represents the **supply mix** of different configurations (1BHK, 2BHK, 3BHK, etc.)
-    - Helps identify which unit types dominate the market
-    """
+    "This chart shows the **distribution of property listings by bedroom count**. "
+    "Helps identify which unit types dominate the market."
 )
 
 st.info(
-    "💡 **How to read this:** "
-    "Larger slices indicate a higher proportion of listings with that bedroom count. "
-    "A market dominated by 2–3 BHK units typically reflects end-user demand, "
-    "while higher bedroom counts often indicate premium or luxury segments."
+    "💡 **How to read this:** A market dominated by 2–3 BHK units typically reflects "
+    "end-user demand, while higher counts indicate premium or luxury segments."
 )
 
-sector = st.selectbox(
-    "Select Sector for Pie Chart",
-    ["All"] + sorted(wc_df["sector"].dropna().unique())
+sector_pie = st.selectbox(
+    "Select Sector (Bedroom Distribution)",
+    get_sector_options(wc_df),
+    key="sector_pie"
 )
 
-
-filtered_sector = df if sector == "All" else df[df["sector"] == sector]
+pie_df = filter_by_property_type(
+    df if sector_pie == "All" else df[df["sector"] == sector_pie],
+    "All"
+)
 
 fig_pie = px.pie(
-    data_frame=filtered_sector,
+    data_frame=pie_df,
     names="bedrooms",
-    hole=0.4,  
+    hole=0.4,
     labels={"bedrooms": "Bedrooms"}
 )
 
-fig_pie.update_layout(
-    height=500,
-    legend_title_text="Bedrooms"
-)
-
+fig_pie.update_layout(height=500, legend_title_text="Bedrooms")
 st.plotly_chart(fig_pie, use_container_width=True)
-

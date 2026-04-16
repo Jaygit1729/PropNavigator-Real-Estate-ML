@@ -471,11 +471,13 @@ def _process_furnish_details(df: pd.DataFrame):
     )
 
     # Step 2 — split into known and unknown groups
+
     known_df = df[df['cleaned_furnishDetails'] != "No Info"].copy()
     unknown_df = df[df['cleaned_furnishDetails'] == "No Info"].copy()
 
     # Step 3 — count furnishing items per property
-    def get_furnishing_count(details: str, furnishing: str) -> int:
+    
+    def get_furnishing_count(details: str, furnishing: str):
         """
         Returns count of a specific furnishing item from the details string.
         Returns 0 if item is explicitly absent or details are unavailable.
@@ -501,6 +503,7 @@ def _process_furnish_details(df: pd.DataFrame):
         )
 
     # Step 4 — load saved artifacts or fit fresh on first run
+
     if os.path.exists(FURNISH_ARTIFACTS_PATH):
         furnish_artifacts = joblib.load(FURNISH_ARTIFACTS_PATH)
         scaler = furnish_artifacts["scaler"]
@@ -518,7 +521,7 @@ def _process_furnish_details(df: pd.DataFrame):
         known_df['furnish_cluster'] = kmeans.fit_predict(scaled_known)
 
         # Map cluster numbers to labels based on total item counts
-        # Highest total items = Furnished, lowest = Unfurnished
+
         cluster_centroids = pd.DataFrame(
             kmeans.cluster_centers_,
             columns=furnishing_items
@@ -544,6 +547,7 @@ def _process_furnish_details(df: pd.DataFrame):
         logger.info("Fitted and saved furnishing KMeans artifacts.")
 
     # Step 5 — label and merge back
+
     known_df['furnishing_type'] = known_df['furnish_cluster'].map(cluster_label_map)
     unknown_df['furnishing_type'] = 'Unfurnished'
 
@@ -590,6 +594,7 @@ def _compute_luxury_score(df: pd.DataFrame):
             absent_mask = features_encoded[col] == 0
 
             # Ignore extremely rare amenities (fewer than 30 properties)
+            
             if present_mask.sum() > 30:
                 median_present = df.loc[present_mask, "price_per_sqft"].median()
                 median_absent = df.loc[absent_mask, "price_per_sqft"].median()

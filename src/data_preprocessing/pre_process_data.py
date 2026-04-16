@@ -108,35 +108,32 @@ def remove_price_per_sqft_outliers(df: pd.DataFrame, max_ppsf: int = 100000):
 
 def remove_area_bedroom_ratio_outliers(
     df: pd.DataFrame,
-    min_ratio: int = 200,
-    dense_threshold: int = 275
-) :
-    """
-    Cleans structurally implausible layouts based on area_per_bedroom.
+    min_ratio: int = 200,          
 
-    Steps:
-        1. Remove rows where area_per_bedroom < min_ratio
-           (physically unrealistic density)
-        2. Create dense_house_flag for independent houses
-           where area_per_bedroom < dense_threshold
-    """
+):
     df = df.copy()
     before = df.shape[0]
 
     df["area_per_bedroom"] = df["total_area_sqft"] / df["bedrooms"]
-    df = df[df["area_per_bedroom"] >= min_ratio]
+
+    # Condition 1 — global minimum ratio (raised to 250)
+    # Less than 250 sqft/bedroom is practically impossible
+    # for any residential layout including kitchen + bathrooms
+    ratio_filter = df["area_per_bedroom"] >= min_ratio
+
+    # Condition 2 — high bedroom count filter
+    # 7+ bedrooms need proportionally more space
+    high_bedroom_filter = ~(
+        (df["bedrooms"] >= 7) &
+        (df["area_per_bedroom"] < 300)
+    )
+
+    df = df[ratio_filter & high_bedroom_filter]
 
     after = df.shape[0]
-    logger.info(f"Removed {before - after} rows where area_per_bedroom < {min_ratio}.")
+    logger.info(f"Removed {before - after} implausible layout rows.")
 
-    df["dense_house_flag"] = (
-        (df["area_per_bedroom"] < dense_threshold) &
-        (df["property_type"] == "Independent House")
-    ).astype(int)
-
-    logger.info(f"Dense house flag created using threshold {dense_threshold}.")
     return df
-
 
 def fill_missing_floornum(df: pd.DataFrame):
     """Fill missing floornum using median value."""
