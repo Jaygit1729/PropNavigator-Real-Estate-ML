@@ -116,8 +116,8 @@ def remove_area_bedroom_ratio_outliers(
 
     df["area_per_bedroom"] = df["total_area_sqft"] / df["bedrooms"]
 
-    # Condition 1 — global minimum ratio (raised to 250)
-    # Less than 250 sqft/bedroom is practically impossible
+    # Condition 1 
+    # Less than 200 sqft/bedroom is practically impossible
     # for any residential layout including kitchen + bathrooms
     ratio_filter = df["area_per_bedroom"] >= min_ratio
 
