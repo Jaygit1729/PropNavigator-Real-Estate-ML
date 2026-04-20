@@ -6,9 +6,7 @@ from wordcloud import WordCloud
 import streamlit as st
 
 
-# ---------------------------------------------------------------------------
 # Page Config
-# ---------------------------------------------------------------------------
 
 st.set_page_config(
     page_title="Gurgaon Real Estate Analytics",
@@ -16,9 +14,7 @@ st.set_page_config(
 )
 
 
-# ---------------------------------------------------------------------------
 # Constants
-# ---------------------------------------------------------------------------
 
 BASE_DIR  = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -35,32 +31,28 @@ AREA_LABELS = ["Small (<1000)", "Mid (1000–2200)", "Large (2200–3500)", "Lux
 PROPERTY_TYPES = ["All", "Independent House", "Independent Builder Floor", "Flat"]
 
 
-# ---------------------------------------------------------------------------
 # Loaders
-# ---------------------------------------------------------------------------
 
 @st.cache_data(show_spinner=False)
-def load_dataframe(path: str) -> pd.DataFrame:
+def load_dataframe(path: str):
     return pd.read_csv(path)
 
 
 @st.cache_data(show_spinner=False)
-def load_wordcloud_data(path: str) -> pd.DataFrame:
-    return pd.read_csv(path)[["sector", "features_list"]]
+def load_wordcloud_data(path: str):
+    return pd.read_csv(path)[["sector", "features"]]
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
-def filter_by_property_type(df: pd.DataFrame, property_type: str) -> pd.DataFrame:
+def filter_by_property_type(df: pd.DataFrame, property_type: str):
     """Returns full df if 'All' selected, else filters by property type."""
     if property_type == "All":
         return df
     return df[df["property_type"] == property_type]
 
 
-def add_area_segment(df: pd.DataFrame) -> pd.DataFrame:
+def add_area_segment(df: pd.DataFrame):
     """
     Creates area_segment column on a copy of df.
     Always operates on a copy — never mutates the cached original.
@@ -74,34 +66,31 @@ def add_area_segment(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def extract_amenity_words(wc_df: pd.DataFrame, sector: str) -> list:
+def extract_amenity_words(wc_df: pd.DataFrame, sector: str):
     """
     Extracts all amenity words for a given sector (or all sectors).
     Returns a flat list of amenity strings.
     """
     filtered = wc_df if sector == "All" else wc_df[wc_df["sector"] == sector]
     words = []
-    for lst in filtered["features_list"].dropna().apply(ast.literal_eval):
+    for lst in filtered["features"].dropna().apply(ast.literal_eval):
         words.extend(lst)
     return words
 
 
-def get_sector_options(wc_df: pd.DataFrame) -> list:
+def get_sector_options(wc_df: pd.DataFrame):
     """Returns sorted list of sectors with 'All' as first option."""
     return ["All"] + sorted(wc_df["sector"].dropna().unique().tolist())
 
 
-# ---------------------------------------------------------------------------
+
 # Load Data
-# ---------------------------------------------------------------------------
 
 df    = load_dataframe(DATA_PATH)
 wc_df = load_wordcloud_data(WC_PATH)
 
 
-# ---------------------------------------------------------------------------
 # UI — Header
-# ---------------------------------------------------------------------------
 
 st.header("📊 Gurgaon Real Estate Analytics")
 st.caption(
@@ -111,9 +100,7 @@ st.caption(
 st.divider()
 
 
-# ---------------------------------------------------------------------------
 # Section 1 — Market Structure: Property Mix by Sector
-# ---------------------------------------------------------------------------
 
 st.subheader("🏘️ Market Structure Overview")
 st.caption("Shows **total supply and property-type composition** within each sector.")
@@ -173,9 +160,7 @@ fig_mix.update_layout(
 st.plotly_chart(fig_mix, use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
 # Section 2 — Price Dispersion Heatmap
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🔥 Sector Price Dispersion")
@@ -213,9 +198,7 @@ fig_disp.update_layout(height=800)
 st.plotly_chart(fig_disp, use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
 # Section 3 — Bedroom × Property Type Configuration Heatmap
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🧩 Bedroom × Property Type Configuration")
@@ -253,9 +236,7 @@ fig_bhk.update_layout(height=400)
 st.plotly_chart(fig_bhk, use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
 # Section 4 — Price Distribution by Property Type (Violin)
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("📊 Price Distribution by Property Type")
@@ -275,9 +256,7 @@ fig_violin.update_layout(height=550, showlegend=False)
 st.plotly_chart(fig_violin, use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
 # Section 5 — Area Segment vs Price Efficiency
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("📐 Area Segment vs Price Efficiency")
@@ -300,9 +279,7 @@ fig_area.update_layout(height=550, showlegend=False)
 st.plotly_chart(fig_area, use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
 # Section 6 — Geomap
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🔍 Listing Exploration using Geomap")
@@ -367,9 +344,7 @@ fig_map.update_layout(
 st.plotly_chart(fig_map, use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
 # Section 7 — Amenities Word Cloud
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("☁️ Common Amenities by Sector")
@@ -407,9 +382,7 @@ else:
     st.warning("No amenity data available for the selected sector.")
 
 
-# ---------------------------------------------------------------------------
 # Section 8 — Area vs Price Scatter
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🔎 Area vs Price — Micro Price Behavior")
@@ -458,9 +431,7 @@ fig_scatter.update_yaxes(showgrid=True, gridcolor="rgba(200,200,200,0.3)")
 st.plotly_chart(fig_scatter, use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
 # Section 9 — Bedroom-wise Price Distribution
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("📦 Price Distribution by Bedroom Configuration")
@@ -500,9 +471,7 @@ fig_box.update_layout(height=500, showlegend=False)
 st.plotly_chart(fig_box, use_container_width=True)
 
 
-# ---------------------------------------------------------------------------
 # Section 10 — Bedroom Distribution Pie Chart
-# ---------------------------------------------------------------------------
 
 st.divider()
 st.subheader("🛏️ Bedroom Distribution Across Listings")

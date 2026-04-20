@@ -5,6 +5,7 @@ import joblib
 import streamlit as st
 
 
+
 # Page Config
 
 st.set_page_config(
@@ -13,43 +14,43 @@ st.set_page_config(
 )
 
 
+
 # Constants
 
 BASE_DIR   = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 MODEL_PATH = os.path.join(BASE_DIR, "artifacts", "best_model.joblib")
 DATA_PATH  = os.path.join(BASE_DIR, "data", "fs", "feature_selected_properties.csv")
 
-FLOOR_CATEGORIES = ["Low-rise", "Mid-rise", "High-rise"]
-
-# age/possession 
-
+# Simplified age/possession labels shown in UI → mapped to model's trained values
+# Model was trained on original categories — we map simplified labels back before prediction
 AGE_POSSESSION_MAP = {
-    "New"               : "Relatively New",      # covers: New Property + Relatively New
-    "Old"               : "Moderately Old",       # covers: Moderately Old + Old Property
+    "New"               : "Relatively New",    # covers: New Property + Relatively New
+    "Old"               : "Moderately Old",     # covers: Moderately Old + Old Property
     "Under Construction": "Under Construction"
 }
+
 
 
 # Loaders
 
 @st.cache_data(show_spinner=False)
-def load_dataframe(path: str) -> pd.DataFrame:
+def load_dataframe(path: str):
     return pd.read_csv(path)
 
 
 @st.cache_resource(show_spinner=False)
-def load_artifact(path: str) -> dict:
+def load_artifact(path: str):
     return joblib.load(path)
 
 
 # Helpers
 
-def get_options(df: pd.DataFrame, col: str) -> list:
+def get_options(df: pd.DataFrame, col: str):
     """Returns sorted unique non-null values for a given column."""
     return sorted(df[col].dropna().unique().tolist())
 
 
-def get_society_for_sector(df: pd.DataFrame, sector: str) -> str:
+def get_society_for_sector(df: pd.DataFrame, sector: str):
     """
     Returns the most common society for a given sector as a backend default.
     Society is not shown in the UI — it is derived internally.
@@ -72,7 +73,7 @@ def get_society_for_sector(df: pd.DataFrame, sector: str) -> str:
     return "other"  # safe fallback the model knows
 
 
-def derive_features(total_area: float, bedrooms: int) -> dict:
+def derive_features(total_area: float, bedrooms: int):
     """
     Derives features the model needs but the user never provides directly.
     - area_per_bedroom : total_area / bedrooms
@@ -84,15 +85,21 @@ def derive_features(total_area: float, bedrooms: int) -> dict:
     }
 
 
-def build_input_df(raw_inputs: dict, derived: dict) -> pd.DataFrame:
+def build_input_df(raw_inputs: dict, derived: dict):
     """
     Combines raw user inputs and derived features into
     a single-row DataFrame matching the model's expected columns.
+
+    Model expects exactly these 15 features:
+    Numerical (7) : total_area_sqft, plot_area_missing, bathrooms,
+                    area_per_bedroom, bedrooms, servant_room, pooja_room
+    Categorical (8): property_type, sector, society, luxury_category,
+                     balcony, facing, furnishing_type, age_possession
     """
     return pd.DataFrame([{**raw_inputs, **derived}])
 
 
-def predict_price(pipeline, input_df: pd.DataFrame, mape: float) -> dict:
+def predict_price(pipeline, input_df: pd.DataFrame, mape: float):
     """
     Runs inference and returns predicted price with confidence bounds.
     Model was trained on log1p(price) — inverse transform applied here.
@@ -121,7 +128,6 @@ mape         = mape_percent / 100
 
 
 # UI — Header
-
 
 st.title("🏡 PropNavigator: Property Price Estimator")
 st.caption("Estimate Gurgaon property prices using ML-powered insights")
@@ -178,12 +184,6 @@ with col2:
         get_options(df, "bathrooms")
     )
 
-    servant_room = st.selectbox(
-        "Servant Room",
-        get_options(df, "servant_room"),
-        index=0
-    )
-
 with col3:
 
     furnishing_type_options = get_options(df, "furnishing_type")
@@ -210,10 +210,25 @@ with col3:
         index=0
     )
 
-    floornum_category = st.selectbox(
-        "Floor Category",
-        FLOOR_CATEGORIES
+# Additional rooms — full width row below the three columns
+st.markdown("#### 🚪 Additional Rooms")
+
+room_col1, room_col2, room_col3 = st.columns(3)
+
+with room_col1:
+    servant_room = st.selectbox(
+        "Servant Room",
+        get_options(df, "servant_room"),
+        index=0
     )
+
+with room_col2:
+    pooja_room = st.selectbox(
+        "Pooja Room",
+        get_options(df, "pooja_room"),
+        index=0
+    )
+
 
 
 # UI — Prediction Button
@@ -224,26 +239,26 @@ if st.button("💰 Estimate Price", use_container_width=True):
 
     with st.spinner("Estimating price..."):
 
-       
+        # Map simplified age label → model's trained category value
         age_possession = AGE_POSSESSION_MAP[age_possession_label]
 
-
+        # Derive society internally — not shown in UI
         society = get_society_for_sector(df, sector)
 
         raw_inputs = {
-            "property_type"    : property_type,
-            "society"          : society,           # derived, not from UI
-            "sector"           : sector,
-            "total_area_sqft"  : total_area,
-            "bedrooms"         : bedrooms,
-            "bathrooms"        : bathrooms,
-            "servant_room"     : servant_room,
-            "balcony"          : balcony,
-            "facing"           : facing,
-            "furnishing_type"  : furnishing_type,
-            "age_possession"   : age_possession,    # mapped from simplified label
-            "luxury_category"  : luxury_category,
-            "floornum_category": floornum_category
+            "property_type" : property_type,
+            "society"       : society,         # derived, not from UI
+            "sector"        : sector,
+            "total_area_sqft": total_area,
+            "bedrooms"      : bedrooms,
+            "bathrooms"     : bathrooms,
+            "servant_room"  : servant_room,
+            "pooja_room"    : pooja_room,      
+            "balcony"       : balcony,
+            "facing"        : facing,
+            "furnishing_type": furnishing_type,
+            "age_possession": age_possession,  # mapped from simplified label
+            "luxury_category": luxury_category
         }
 
         derived  = derive_features(total_area, bedrooms)
