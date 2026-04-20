@@ -24,12 +24,21 @@ Thumbs.db
 # Environment variables - NEVER commit
 .env
 
-# Data files - too large for git
-data/
+# Raw pipeline data — too large, not needed at runtime
+data/web_scraping/
+data/data_cleaning/
+data/fe/
+data/pp/
+data/model_building/
 
-# Model artifacts - too large for git
-artifacts/
-models/
+# Runtime files needed by Streamlit — explicitly allowed
+!data/fs/
+!data/analytics_module/
+!data/insight_module/
+!data/recommender/
+
+# Model artifact — needed by Streamlit
+!artifacts/
 
 # Binary/generated files inside notebooks
 notebooks/**/*.pkl

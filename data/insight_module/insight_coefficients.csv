@@ -1,0 +1,387 @@
+feature,coef
+sector_sector 42,0.6137197668010979
+sector_sector 54,0.6062462208605068
+society_central park resorts,0.554601623729806
+society_dlf the grove,0.5361660534783843
+society_trump tower,0.5292373045570942
+society_dlf the crest,0.5279065674873571
+society_emaar mgf marbella,0.5235071387553956
+sector_sector 62,0.4985670557719834
+society_unitech uniworld resorts,0.47002233402907784
+"society_sector 9a, gurgaon",0.46983501647338477
+sector_sector 26,0.45655767384224016
+society_central park flower valley fleur villas,0.4460451158852255
+society_indiabulls enigma,0.4412625154497399
+society_krisumi waterfall residences,0.44058538770554817
+society_sobha international city phase 3,0.43563353418937373
+"society_block j pocket c palam vihar, gurgaon",0.4318484974099758
+society_vipul tatvam villa,0.41809897747271685
+sector_sector 25,0.40195542648834126
+society_international city by sobha phase 1,0.40172015034864106
+sector_sector 28,0.40054750511918363
+sector_sector 65,0.396560095776998
+society_conscient elevate,0.39541528696798545
+"society_sector 15 part 2, gurgaon",0.3941950313034449
+society_emaar mgf the vilas,0.3914322712746302
+"society_dlf cyber city, gurgaon",0.38720309958426197
+sector_sector 53,0.38587233251336334
+"society_sector 5, gurgaon",0.3819854543077121
+sector_sector 73,0.3801452252997911
+society_dlf garden city floors,0.37895506560807024
+society_pioneer araya,0.37555143309934685
+society_sobha city,0.3740344704764222
+society_garden villas,0.3711573331685586
+sector_sector 50,0.36065530786578154
+society_tulip violet,0.36026338535892705
+society_unitech espace,0.35380576559747623
+sector_sector 43,0.34887896155105563
+society_mahindra aura,0.3463011180551653
+society_m3m merlin,0.34407311670991925
+society_mahindra luminare,0.3399817210771628
+society_unitech aspen greens,0.33451135458647413
+society_tulip monsella,0.333759672565525
+society_dlf the ultima,0.33126217609481207
+society_hero homes,0.32619706410278126
+society_puri emerald bay,0.32271210297913594
+sector_sector 41,0.3192362649976065
+society_ireo victory valley,0.31329019703183536
+society_tulip yellow,0.31254162035670613
+sector_sector 22,0.3117324278012437
+society_suncity platinum towers,0.3061908564443771
+sector_sector 45,0.30184484799450395
+sector_sector 66,0.3017315187072186
+sector_sector 60,0.2976155583256089
+society_unitech nirvana birch court,0.2959311060500652
+society_ats triumph,0.2911789195075146
+balcony_3+,0.28902146073277785
+society_unitech deerwood chase,0.2825075499647656
+society_ansals palam vihar,0.26901146289774147
+balcony_3,0.26888096924736743
+society_bestech park view sanskruti,0.2680608213646786
+"society_sector 7, gurgaon",0.2668949697765364
+sector_sector 38,0.2639248885283989
+society_central park flower valley aqua front towers,0.2593132078989103
+society_ireo the grand arch,0.25848486706821683
+sector_sector 58,0.25848486706821605
+society_emaar the palm springs,0.2573326516685096
+balcony_2,0.25094946399841817
+"society_sector 9, gurgaon",0.24754815561259924
+sector_sector 14,0.246945741738634
+sector_sector 24,0.2454434875561372
+society_central park flower valley,0.245109167309312
+society_m3m golfestate,0.24099469794759798
+sector_sector 63,0.23985859503933712
+"society_block c2 sector 3, gurgaon",0.23792187462651643
+"society_nirvana country, gurgaon",0.23646373145643143
+sector_sector 61,0.23484849509361172
+sector_sector 46,0.22969472501930985
+society_international city by sobha phase 2,0.2289459208831994
+society_shapoorji pallonji joyville gurugram,0.22846381980749292
+society_unitech nirvana country 2,0.2259095208221522
+society_godrej meridien,0.22456614853389753
+sector_sector 59,0.21660081624603658
+"society_palam vihar, gurgaon",0.21366796368496693
+society_vatika signature villas,0.21285949071566101
+society_dlf city plots phase 2,0.20282831929692566
+sector_sector 72,0.20185279063727818
+"society_block-a, dlf city phase 1, gurgaon",0.18992633437092962
+society_parsvnath exotica,0.18948840378381732
+society_dlf the primus,0.18839953519093308
+"society_sector 31, gurgaon",0.1855469694487531
+society_dlf city plots,0.18466818495157603
+society_sare homes,0.1842569364464585
+sector_sector 27,0.17838856195970587
+"society_sector 27, gurgaon",0.17838856195970537
+sector_sector 40,0.17763026686169683
+sector_sector 47,0.17384852991035796
+society_vipul world,0.17149326336217474
+sector_sector 30,0.17036894373369835
+society_dlf gardencity enclave,0.16606431947070527
+society_central park flower valley flamingo floors,0.16593335700312292
+sector_sector 17,0.1649298922606679
+society_dlf park place,0.16314752517262732
+sector_sector 112,0.16311673009020186
+society_ansal plaza,0.16174331832881583
+society_aipl the peaceful homes,0.1607306915623828
+sector_sector 49,0.15781297989648665
+society_adani m2k oyster grande,0.15604665949083457
+society_bptp amstoria,0.1524209808655521
+"society_sector 4, gurgaon",0.15090286287296178
+balcony_1,0.1498099422536669
+total_area_sqft,0.14539067578181614
+"society_urban estate, gurgaon",0.14503332307963201
+"society_malibu town, gurgaon",0.1426263175153619
+society_bestech park view grand spa,0.14169039277729212
+society_ireo the corridors,0.13973436606031708
+society_m3m latitude,0.13339750487371088
+society_ss the leaf,0.1331655756806505
+society_birla navya,0.13251939448117775
+society_conscient heritage max,0.13198964729917798
+society_sare crescent parc,0.13062526022564902
+society_central park flower valley cerise floors,0.1282457380015571
+"society_b block sushant lok phase 1, gurgaon",0.12789735715661918
+society_pioneer urban presidia,0.1270987435160839
+society_bestech altura,0.12704230740705333
+sector_sector 111,0.12665654563952114
+society_puri diplomatic greens,0.12665654563951842
+sector_sector 109,0.12577773402021322
+"society_new colony, gurgaon",0.12493467394787787
+society_experion windchants,0.12464487920006248
+sector_sector 91,0.12374392233353376
+property_type_Independent House,0.12374270690502825
+sector_sector 51,0.1221070890954967
+"society_block n, mayfield garden, gurgaon",0.11805064915079917
+society_tulip purple,0.11450685498407596
+society_bestech park view residency,0.11065352978090492
+society_vatika sovereign park,0.11011193704777825
+society_orchid petals,0.10738146319640954
+society_m3m the marina,0.1069347181507268
+"society_block m dlf phase 2, gurgaon",0.10340003071139758
+sector_sector 56,0.10218153531128624
+"society_sector 57, gurgaon",0.10055597593334777
+society_tata primanti,0.09849040060095689
+society_signature global city,0.09848062215450924
+society_paras irene,0.09814607898697154
+society_la vida by tata housing,0.0980187680216084
+society_ultra-luxury villa,0.09775753663260117
+society_eros rosewood city,0.09687085935007052
+sector_sector 113,0.09671519262623468
+society_huda flats,0.09596598368819122
+society_malibu towne,0.09271868479143461
+sector_sector 55,0.09165424326021683
+sector_gwal pahari,0.09157279672066805
+bedrooms,0.08888756161850088
+"society_block a south city 2, gurgaon",0.0876465892086574
+"society_sushant lok 3 extension, gurgaon",0.08760295347818797
+sector_sector 23,0.08683638397085863
+society_bptp park serene,0.08680206616671998
+society_assotech blith,0.08634761783292838
+sector_sector 57,0.08392761946612629
+society_ashiana anmol,0.07960015932223095
+society_urban home,0.07744272948401208
+society_emaar palm heights,0.07711610491772979
+"society_dlf phase 3, gurgaon",0.0763972187666177
+"society_dlf phase 1, gurgaon",0.0761794051153726
+society_microtek greenburg,0.07394451667258592
+society_bptp astaire gardens,0.07376538933863255
+society_pareena mi casa,0.07069628173948558
+"society_dlf phase 2, gurgaon",0.07054892599112463
+"society_sushant lok 2,sector 55, gurgaon",0.06961097731206638
+area_per_bedroom,0.06902040185532446
+society_dlf the skycourt,0.06699002892958446
+bathrooms,0.06404019022424805
+"society_galleria market, gurgaon",0.062085398382791174
+"society_south city 2, gurgaon",0.061866505034549386
+society_emaar imperial gardens,0.06179654344129924
+society_ss linden floors,0.06173447226654357
+society_bestech park view spa next,0.061375363094807664
+society_emaar emerald hills,0.06134939165335224
+society_satya the legend,0.061122323438263904
+society_emaar palm gardens,0.06048762639488862
+"society_rosewood city, gurgaon",0.060425697561992085
+sector_sector 52,0.0599817162667787
+society_sector 14 rwa,0.05982104168927612
+society_bptp green oaks,0.05888777423786228
+society_godrej habitat,0.05881786065254635
+society_m3m natura,0.05733205855816315
+society_dlf phase - 1,0.05725647225035151
+sector_sector 67,0.05093040528931032
+"society_block c sushant lok phase - 3, gurgaon",0.0508725665158271
+society_emaar mgf the palm drive,0.05086983808306404
+society_adani brahma samsara vilasa,0.0500994645753904
+society_bestech park view ananda,0.04941416068258045
+"society_block b sushant lok 3, gurgaon",0.049208479519513335
+society_dlf regal gardens,0.04859905083938823
+age_possession_Old Property,0.04775535963533732
+sector_sector 10,0.047330140520306534
+society_alpha corp gurgaonone 84,0.04683846994606562
+sector_sector 74,0.04551851789756286
+"society_sushant lok phase 3, gurgaon",0.04354700547608636
+luxury_category_Luxury,0.040142944484497865
+society_tata gurgaon gateway,0.038471850890174526
+sector_sector 44,0.03815594710509547
+"society_sector 43, gurgaon",0.03774646469395939
+"society_dlf phase 4, gurgaon",0.03594232686082489
+servant_room,0.035521497517721184
+"society_sector 23, gurgaon",0.03525683453197673
+society_ultra luxurious builder floor,0.034976375811484696
+"society_block c, sushant lok phase 1, gurgaon",0.03468832818565701
+society_ats marigold,0.033736399906851865
+sector_sector 48,0.03198649887565893
+luxury_category_Semi-Luxury,0.03194465532030863
+society_mapsko mount ville,0.03175457445349686
+"society_a block sushant lok phase 1, gurgaon",0.02941392942540916
+society_signature the roselia,0.026993962435837453
+society_spaze privvy the address,0.026089258541773463
+sector_sector 108,0.024965877747027874
+facing_north-west,0.02147836315884148
+"society_sector 51, gurgaon",0.018815123782153716
+sector_sector 11,0.01860724637597
+society_all punjabi welfare association,0.018572787306272164
+society_uppal southend,0.015110719710409636
+"society_sushant lok phase 2, gurgaon",0.01295531063250577
+facing_south-west,0.012269005620635114
+pooja_room,0.011980245975152314
+society_spaze privy at4,0.01071909324624678
+society_ansal sushant lok 2,0.00987274999404747
+society_luxury builder floor in south city 2,0.009058758191294479
+facing_south,0.008833755889353806
+facing_north,0.008713774937385666
+facing_south-east,0.0066483712820824626
+society_godrej nature plus,0.0065956545064691195
+facing_north-east,0.004139915476463738
+society_vatika city,0.0035342346289178005
+society_anant raj estates,0.0027878558914683034
+sector_sector 86,0.0024424606167603906
+"society_block e dlf city phase 1, gurgaon",0.0023605999968613397
+sector_sector 88,0.0020326311222627408
+society_bptp freedom park life,0.0007846741085644272
+"society_sector 67a, gurgaon",-0.001830104644613852
+sector_sector 31,-0.0018364380123442527
+sector_sector 70,-0.003183576411983646
+facing_west,-0.003926415852402343
+society_emaar digihomes,-0.004083120843418654
+"society_greenwood city, gurgaon",-0.004666142104398853
+"society_g block dlf city phase 1, gurgaon",-0.009321759373577829
+sector_sector 15,-0.010063239656296056
+society_emaar gurgaon greens,-0.012455655303858892
+society_rof ananda,-0.012531412907401668
+"society_sushant lok phase 1, gurgaon",-0.013841273919100084
+"society_sector 14, gurgaon",-0.01595831912663536
+society_ansal sushant residency,-0.016185768382457177
+society_brand new builder floor,-0.01766388177026534
+facing_not available,-0.0176684464894656
+society_eldeco acclaim,-0.018231670849056223
+sector_sector 99,-0.01926257794682383
+society_smart world gems,-0.02095102665673361
+society_vatika gurgaon 21,-0.02288190108498982
+society_ireo skyon,-0.02328424971649448
+society_lotus elise,-0.026223978085783337
+society_ansal api esencia,-0.026744160003054556
+"society_south city 1, gurgaon",-0.027386079010885588
+sector_sector 106,-0.028892566164865408
+society_chintels serenity,-0.029307102061156744
+sector_sector 76,-0.029788226998204746
+society_pareena coban residences,-0.03075968589716867
+furnishing_type_Semi-Furnished,-0.030934814095707065
+society_bestech park view city 2,-0.031241175592755643
+sector_sector 103,-0.03197321328322721
+sector_sector 82,-0.032021495908251166
+society_m3m soulitude,-0.034652869472421535
+"society_sector 40, gurgaon",-0.038254059774233004
+age_possession_Relatively New,-0.03932196074634962
+"society_sector 47, gurgaon",-0.03986425546542676
+society_smart world orchard,-0.041084251648514085
+society_dlf city phase 1,-0.04148971747346159
+society_eldeco accolade,-0.04151577125764949
+furnishing_type_Unfurnished,-0.04228025168402441
+society_shree vardhman victoria,-0.04357135019633626
+age_possession_New Property,-0.0438310414222803
+"society_ardee city, gurgaon",-0.044307953701527604
+"society_sector 39, gurgaon",-0.04497926406320614
+sector_sector 39,-0.044979264063212634
+society_vatika the seven lamps,-0.045021834185246565
+society_parsvnath green ville,-0.04515109304342655
+sector_sector 77,-0.04522236394860213
+"society_block p south city 1, gurgaon",-0.04571185119510546
+society_ramprastha the edge towers,-0.045975053742426025
+sector_sector 83,-0.05130322319448408
+"society_sector 46, gurgaon",-0.05201580083498782
+society_emaar mgf palm hills,-0.05265189252940965
+society_silverglades the melia,-0.053465792888726625
+society_ardee city,-0.054072156576250946
+society_vatika independent floors,-0.054490739034610804
+sector_sector 89,-0.056818287121556094
+"society_rajendra park, gurgaon",-0.05843585309621602
+society_ansal api versalia,-0.05942287707318008
+society_dlf luxury builder floors,-0.05962736856871345
+property_type_Independent Builder Floor,-0.06014146995548743
+society_unitech escape,-0.06014887610682118
+sector_sector 90,-0.060632549631912114
+sector_sector 80,-0.060700841195479284
+society_bptp visionnaire,-0.06136196923528786
+society_sushant lok 1 builder floors,-0.06187427316540584
+society_mapsko casa bella,-0.06282564943130639
+society_suncity vatsal valley,-0.06402783761386086
+sector_sector 2,-0.06770667094537484
+society_intelligentsia apartment,-0.06831733339509545
+sector_sector 79,-0.06878352508275518
+society_cosmos express 99,-0.06936567065111666
+society_umang winter hills,-0.06968657633691602
+society_emaar mgf palm terraces select,-0.07498559166987663
+society_orris aster court,-0.07504011059917075
+sector_sector 35,-0.07566413266734007
+"society_vishnu garden, gurgaon",-0.07711567080917625
+sector_sector 107,-0.08079823296198194
+society_m3m woodshire,-0.08079823296198518
+sector_sector 71,-0.08090956945819716
+society_indiabulls centrum park,-0.08214668228634184
+sector_sector 21,-0.08339122458473106
+society_private builder floor,-0.08459983865615113
+society_pareena express heights,-0.08937279819349926
+society_experion the heartsong,-0.09547401532398042
+sector_sector 68,-0.09601147573504618
+"society_new palam vihar, gurgaon",-0.09720855786529063
+"society_sector 41, gurgaon",-0.09827372158543898
+sector_sector 81,-0.09870555795539429
+society_m3m heights,-0.10132024518246067
+society_ild greens,-0.10236724776940949
+society_orris carnation residency,-0.10277292585940208
+society_antriksh heights,-0.10310737498277808
+plot_area_missing,-0.10472056397071677
+society_dlf new town heights 1,-0.10923160047130742
+society_ats kocoon,-0.10950286129831337
+sector_sector 102,-0.11081659324403949
+society_mayfield gardens,-0.11131639859755404
+"society_sector 45, gurgaon",-0.11519550911565256
+sector_sector 33,-0.11607176046445435
+society_the close south,-0.11841107831794462
+society_huda sector 46,-0.11848389453439029
+society_unitech south city 2,-0.12006893032422021
+"society_suncity, gurgaon",-0.12055179362024918
+sector_sector 78,-0.12278737923892998
+sector_sector 84,-0.1264795312291342
+society_mapsko paradise,-0.12744544725697765
+society_dlf phase 1 ultra luxury builder floors,-0.12804564361091927
+society_emaar mgf emerald floors premier,-0.12873562265439673
+society_mapsko royale ville,-0.1353692670123421
+sector_sector 85,-0.14026969285314417
+"society_krishna colony, gurgaon",-0.14286590469659868
+society_vipul lavanya,-0.14339790408400355
+society_dlf new town heights 2,-0.15487891600876555
+"society_sector 10a, gurgaon",-0.157239559140562
+society_ats tourmaline,-0.15771451435240896
+sector_sector 37,-0.16515401613392963
+society_paras dews,-0.16828065820091645
+sector_sector 1,-0.17841520790245538
+sector_sector 93,-0.18414418660965745
+sector_sector 4,-0.18577407034698115
+age_possession_Under Construction,-0.1887809676857203
+society_emaar mgf emerald estate,-0.18889218708834687
+society_signature global park,-0.1903654217661935
+society_unitech harmony,-0.1932243377263344
+sector_sector 3,-0.1940944378748286
+society_greenopolis,-0.194988134917821
+"society_maruti kunj, gurgaon",-0.20553544223510914
+society_the close north,-0.21431702020289825
+"society_sector 10, gurgaon",-0.22200346047066796
+sector_sector 36,-0.22998366423847438
+society_tarc maceo,-0.2311374034586028
+sector_sector 69,-0.25025821511327884
+society_raheja vedaanta,-0.25359457740551705
+sector_sector 104,-0.253755086832632
+"society_sector 63a, gurgaon",-0.25547492854414033
+sector_sector 7,-0.27696452771573876
+sector_sector 95,-0.28365721332995086
+society_unitech fresco,-0.2859898214671381
+sector_sector 110,-0.3166603027745943
+"society_laxman vihar phase 2, gurgaon",-0.3316736962273387
+sector_sector 8,-0.3371990432992598
+sector_sector 12,-0.34630627600145414
+sector_sector 92,-0.350152982875443
+sector_sector 9,-0.4135489506945045
+sector_sector 105,-0.4225992992513496
+sector_sector 5,-0.4421556593276659
+sector_sector 6,-0.48915058006073486
+sector_farukhnagar,-0.5051779681698695
+sector_sector 13,-0.6955116557026223
