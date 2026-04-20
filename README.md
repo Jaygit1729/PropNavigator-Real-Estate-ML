@@ -2,6 +2,10 @@
 
 Real Estate Decision Intelligence Platform
 
+## 🚀 Live Demo
+
+👉 [PropNavigator — Live App](https://propnavigator-real-estate-ml.streamlit.app/)
+
 📌 Overview
 
 Prop Navigator is an end-to-end real estate analytics platform designed to transform raw property listings into structured insights that support informed property decisions.

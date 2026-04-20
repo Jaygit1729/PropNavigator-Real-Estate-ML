@@ -46,4 +46,4 @@ notebooks/**/*.csv
 notebooks/**/*.html
 
 # IDE
-.vscode/settings.json
+.vscode/settings.jsondata/insight_module/X_transformed_df.csv 
