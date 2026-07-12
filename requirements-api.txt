@@ -1,0 +1,12 @@
+# Lean dependencies for the FastAPI serving image (Phase 3).
+# Only what's needed to load the stacking model (LightGBM + RandomForest + XGBoost bases)
+# and serve predictions — no streamlit / shap / jupyter / selenium / matplotlib.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.12.5
+scikit-learn==1.8.0
+xgboost==3.1.2
+lightgbm>=4.0.0
+joblib==1.5.2
+pandas==2.3.3
+numpy==2.3.5

@@ -1,0 +1,38 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# ===== Virtual environment (huge — 30k+ files, never commit) =====
+prop/
+propnav/
+venv/
+.venv/
+env/
+
+# ===== Secrets (NEVER commit) =====
+.env
+*.pem
+*.key
+
+# ===== Logs & runtime output =====
+logs/
+*.log
+
+# ===== OS / IDE / agent tooling =====
+.DS_Store
+Thumbs.db
+.vscode/
+.claude/
+
+# ===== Data & models — versioned by DVC (Step 1), not Git =====
+# Kept out of Git because they are large / change often. DVC will track them
+# properly in the next step and add its own pointer files back into Git.
+data/
+artifacts/
+catboost_info/
+
+# ===== MLflow (Step 2) local files =====
+mlruns/
+mlflow.db
