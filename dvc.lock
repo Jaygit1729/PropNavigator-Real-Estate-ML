@@ -1,0 +1,150 @@
+schema: '2.0'
+stages:
+  clean_flats:
+    cmd: python -m src.run_stage clean_flats
+    deps:
+    - path: data/web_scraping/flats_gurgaon.csv
+      hash: md5
+      md5: b6cb78d3bd73893f5bd814c2cecb18cc
+      size: 38652576
+    - path: src/data_cleaning/residential_apartment_cleaning.py
+      hash: md5
+      md5: a42dacc73de738e3a98fad8678bd1a02
+      size: 5138
+    - path: src/run_stage.py
+      hash: md5
+      md5: 09821ae6bfdda406fb941481a4df8ba7
+      size: 3599
+    outs:
+    - path: data/data_cleaning/cleaned_residential_apartment.csv
+      hash: md5
+      md5: a482b061fee8c2c493d77852ed4d68aa
+      size: 38651376
+  clean_builder:
+    cmd: python -m src.run_stage clean_builder
+    deps:
+    - path: data/web_scraping/builder_floor_gurgaon.csv
+      hash: md5
+      md5: b9b6b2f4551d72384ff308accd181e84
+      size: 12220009
+    - path: src/data_cleaning/indepedent_builder_floor.py
+      hash: md5
+      md5: dcb92c134896357039da3b8dbc807600
+      size: 6945
+    - path: src/run_stage.py
+      hash: md5
+      md5: 09821ae6bfdda406fb941481a4df8ba7
+      size: 3599
+    outs:
+    - path: data/data_cleaning/cleaned_independent_builder_floor.csv
+      hash: md5
+      md5: 7eb3d97cc2ee75be2fe7561846b2ec13
+      size: 12203543
+  clean_house:
+    cmd: python -m src.run_stage clean_house
+    deps:
+    - path: data/web_scraping/independent_house_gurgaon.csv
+      hash: md5
+      md5: 66d4e9cbb90cdee2ab1de404edd9ec50
+      size: 2301268
+    - path: src/data_cleaning/house_cleaning.py
+      hash: md5
+      md5: 759b5b4c332d72c16589f9e6ef8e8446
+      size: 4859
+    - path: src/run_stage.py
+      hash: md5
+      md5: 09821ae6bfdda406fb941481a4df8ba7
+      size: 3599
+    outs:
+    - path: data/data_cleaning/cleaned_independent_houses.csv
+      hash: md5
+      md5: c5dca225531334eae63eb3aeba1995c3
+      size: 2234747
+  merge:
+    cmd: python -m src.run_stage merge
+    deps:
+    - path: data/data_cleaning/cleaned_independent_builder_floor.csv
+      hash: md5
+      md5: 7eb3d97cc2ee75be2fe7561846b2ec13
+      size: 12203543
+    - path: data/data_cleaning/cleaned_independent_houses.csv
+      hash: md5
+      md5: c5dca225531334eae63eb3aeba1995c3
+      size: 2234747
+    - path: data/data_cleaning/cleaned_residential_apartment.csv
+      hash: md5
+      md5: a482b061fee8c2c493d77852ed4d68aa
+      size: 38651376
+    - path: src/data_cleaning/merge_data.py
+      hash: md5
+      md5: e531a767796ad869ab5a8cf3581c3e8d
+      size: 2107
+    - path: src/run_stage.py
+      hash: md5
+      md5: 09821ae6bfdda406fb941481a4df8ba7
+      size: 3599
+    outs:
+    - path: data/data_cleaning/cleaned_properties.csv
+      hash: md5
+      md5: 85c6b68d54043d1eb2f078bf8886ba27
+      size: 53528087
+  feature_engineering:
+    cmd: python -m src.run_stage feature_engineering
+    deps:
+    - path: data/data_cleaning/cleaned_properties.csv
+      hash: md5
+      md5: 85c6b68d54043d1eb2f078bf8886ba27
+      size: 53528087
+    - path: src/feature_engineering/feature_eng.py
+      hash: md5
+      md5: 402e32190f36c92c1b0e6ac6bb1cfe03
+      size: 16250
+    - path: src/run_stage.py
+      hash: md5
+      md5: 09821ae6bfdda406fb941481a4df8ba7
+      size: 3599
+    outs:
+    - path: data/fe/featured_properties.csv
+      hash: md5
+      md5: 588a06bb45c7e2495f514aa82c291dc8
+      size: 59738209
+  preprocess:
+    cmd: python -m src.run_stage preprocess
+    deps:
+    - path: data/fe/featured_properties.csv
+      hash: md5
+      md5: 588a06bb45c7e2495f514aa82c291dc8
+      size: 59738209
+    - path: src/data_preprocessing/pre_process_data.py
+      hash: md5
+      md5: ccf9e8467eae8c7fc83219f567a8b3cf
+      size: 9312
+    - path: src/run_stage.py
+      hash: md5
+      md5: 09821ae6bfdda406fb941481a4df8ba7
+      size: 3599
+    outs:
+    - path: data/pp/preprocessed_properties.csv
+      hash: md5
+      md5: d4c6b877578f8458c317d46120fe2c91
+      size: 8705241
+  feature_selection:
+    cmd: python -m src.run_stage feature_selection
+    deps:
+    - path: data/pp/preprocessed_properties.csv
+      hash: md5
+      md5: d4c6b877578f8458c317d46120fe2c91
+      size: 8705241
+    - path: src/feature_selection/feature_selection.py
+      hash: md5
+      md5: 811e97982621eae6f071e209a7f96572
+      size: 1289
+    - path: src/run_stage.py
+      hash: md5
+      md5: 09821ae6bfdda406fb941481a4df8ba7
+      size: 3599
+    outs:
+    - path: data/fs/feature_selected_properties.csv
+      hash: md5
+      md5: 83fdcce070d6d9682ddd63ded2bdb328
+      size: 7998951

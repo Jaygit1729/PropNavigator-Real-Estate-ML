@@ -1,0 +1,6 @@
+outs:
+- md5: 60fd68fee9f6b8800e949d11ac8b5020.dir
+  size: 53178498
+  nfiles: 6
+  hash: md5
+  path: web_scraping

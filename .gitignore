@@ -29,12 +29,20 @@ Thumbs.db
 # ===== Data & models — versioned by DVC (Step 1), not Git =====
 # Kept out of Git because they are large / change often. DVC will track them
 # properly in the next step and add its own pointer files back into Git.
-data/
+
+
 artifacts/
 catboost_info/
 
 # ===== MLflow (Step 2) local files =====
 mlruns/
 mlflow.db
-/data
 /artifacts
+
+# Analysis byproducts (data — keep out of Git)
+data/error_analysis/
+data/model_building/
+data/fs/feature_importance_table.csv
+data/fs/feature_ranking.csv
+data/fs/feature_scores.csv
+data/pp/preprocessed_properties_for_viz.csv

@@ -1,0 +1,6 @@
+outs:
+- md5: 9759ff7e4a1cd8206dca285dd2609d93.dir
+  size: 13833840
+  nfiles: 1
+  hash: md5
+  path: analytics_module

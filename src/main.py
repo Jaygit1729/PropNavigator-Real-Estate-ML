@@ -51,7 +51,7 @@ def main():
             return
         save_data(cleaned_houses, "data/data_cleaning/cleaned_independent_houses.csv")
         logger.info("Independent House data cleaned and saved.")
-
+        
         
         # 4. Merge Datasets
         
@@ -106,7 +106,7 @@ def main():
 
         logger.info("Pipeline finished successfully.")
         
-
+        
     except Exception as e:
         logger.error(f"Critical pipeline failure: {str(e)}", exc_info=True) 
         

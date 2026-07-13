@@ -1,0 +1,59 @@
+stages:
+  clean_flats:
+    cmd: python -m src.run_stage clean_flats
+    deps:
+    - data/web_scraping/flats_gurgaon.csv
+    - src/data_cleaning/residential_apartment_cleaning.py
+    - src/run_stage.py
+    outs:
+    - data/data_cleaning/cleaned_residential_apartment.csv
+  clean_builder:
+    cmd: python -m src.run_stage clean_builder
+    deps:
+    - data/web_scraping/builder_floor_gurgaon.csv
+    - src/data_cleaning/indepedent_builder_floor.py
+    - src/run_stage.py
+    outs:
+    - data/data_cleaning/cleaned_independent_builder_floor.csv
+  clean_house:
+    cmd: python -m src.run_stage clean_house
+    deps:
+    - data/web_scraping/independent_house_gurgaon.csv
+    - src/data_cleaning/house_cleaning.py
+    - src/run_stage.py
+    outs:
+    - data/data_cleaning/cleaned_independent_houses.csv
+  merge:
+    cmd: python -m src.run_stage merge
+    deps:
+    - data/data_cleaning/cleaned_residential_apartment.csv
+    - data/data_cleaning/cleaned_independent_houses.csv
+    - data/data_cleaning/cleaned_independent_builder_floor.csv
+    - src/data_cleaning/merge_data.py
+    - src/run_stage.py
+    outs:
+    - data/data_cleaning/cleaned_properties.csv
+  feature_engineering:
+    cmd: python -m src.run_stage feature_engineering
+    deps:
+    - data/data_cleaning/cleaned_properties.csv
+    - src/feature_engineering/feature_eng.py
+    - src/run_stage.py
+    outs:
+    - data/fe/featured_properties.csv
+  preprocess:
+    cmd: python -m src.run_stage preprocess
+    deps:
+    - data/fe/featured_properties.csv
+    - src/data_preprocessing/pre_process_data.py
+    - src/run_stage.py
+    outs:
+    - data/pp/preprocessed_properties.csv
+  feature_selection:
+    cmd: python -m src.run_stage feature_selection
+    deps:
+    - data/pp/preprocessed_properties.csv
+    - src/feature_selection/feature_selection.py
+    - src/run_stage.py
+    outs:
+    - data/fs/feature_selected_properties.csv
