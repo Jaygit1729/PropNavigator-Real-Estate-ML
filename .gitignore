@@ -36,3 +36,5 @@ catboost_info/
 # ===== MLflow (Step 2) local files =====
 mlruns/
 mlflow.db
+/data
+/artifacts
