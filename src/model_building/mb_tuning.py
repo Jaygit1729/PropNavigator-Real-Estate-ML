@@ -11,16 +11,9 @@ from sklearn.metrics import (
     make_scorer
 )
 from scipy.stats import randint as sp_randint, uniform as sp_uniform
-from xgboost import XGBRegressor
-from lightgbm import LGBMRegressor
-from catboost import CatBoostRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.svm import SVR
 from src.logger_utils import setup_logger
 from .mb_preprocessing import (
     get_tree_preprocessor,
-    get_linear_preprocessor,
-    get_catboost_preprocessor,
     inverse_transform_target
 )
 
@@ -35,31 +28,20 @@ neg_mape_scorer = make_scorer(
 
 def get_param_grid(model_name: str):
     """
-    Returns hyperparameter search space for the given model.
-    Ranges are based on empirical tuning experience for
-    real estate price prediction tasks.
+    Returns the hyperparameter search space for the given model.
+    Ranges are based on empirical tuning for real estate price prediction.
     """
-    if model_name == "RandomForest":
+    if model_name == "XGBoost":
         return {
-            "regressor__n_estimators": sp_randint(400, 900),
-            "regressor__max_depth": sp_randint(10, 25),
-            "regressor__min_samples_split": sp_randint(5, 25),
-            "regressor__min_samples_leaf": sp_randint(2, 15),
-            "regressor__max_features": ["sqrt", 1.0]
+            "regressor__learning_rate": sp_uniform(0.01, 0.05),
+            "regressor__n_estimators": sp_randint(500, 1000),
+            "regressor__max_depth": sp_randint(3, 6),
+            "regressor__subsample": sp_uniform(0.6, 0.4),
+            "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
+            "regressor__reg_alpha": [0.1, 0.5, 1, 5],
+            "regressor__reg_lambda": [1, 5, 10],
+            "regressor__min_child_weight": sp_randint(3, 8)
         }
-    elif model_name == "XGBoost":
-        return {
-                "regressor__learning_rate": sp_uniform(0.01, 0.05),
-                "regressor__n_estimators": sp_randint(500, 1000),     # ← middle ground
-                "regressor__max_depth": sp_randint(3, 6),
-                "regressor__subsample": sp_uniform(0.6, 0.4),
-                "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
-                "regressor__reg_alpha": [0.1, 0.5, 1, 5],            # ← moderate
-                "regressor__reg_lambda": [1, 5, 10],                  # ← moderate
-                "regressor__min_child_weight": sp_randint(3, 8)       # ← keep this
-            }
-        
-            
     elif model_name == "LightGBM":
         return {
             "regressor__learning_rate": sp_uniform(0.01, 0.09),
@@ -81,12 +63,6 @@ def get_param_grid(model_name: str):
             "regressor__bagging_temperature": sp_uniform(0, 1),
             "regressor__random_strength": sp_uniform(0, 2),
         }
-    elif model_name == "SVR":
-        return {
-            "regressor__C": sp_uniform(1, 100),
-            "regressor__epsilon": sp_uniform(0.01, 0.5),
-            "regressor__gamma": ["scale", "auto"]
-        }
     return {}
 
 
@@ -101,25 +77,26 @@ def tune_model(
     categorical_features: list
 ):
     """
-    Runs RandomizedSearchCV for the given model, evaluates the best
-    estimator on train and test sets, and returns the fitted pipeline.
+    Runs RandomizedSearchCV for the given model and evaluates the best
+    estimator on train and test sets (metrics on original price scale).
 
+    Returns a dict:
+        {
+            "pipeline":    fitted best pipeline,
+            "best_params": winning hyperparameters,
+            "test_mape":   test MAPE (%),
+            "test_r2":     test R2,
+            "train_mape":  train MAPE (%),
+        }
+    or None if tuning fails.
     """
     try:
         logger.info(f"Tuning started for {model_name}.")
 
-        if model_name in ["RandomForest", "XGBoost", "LightGBM"]:
-            preprocessor = get_tree_preprocessor(
-                numerical_features, categorical_features
-            )
-        elif model_name == "CatBoost":
-            preprocessor = get_catboost_preprocessor(
-                numerical_features, categorical_features
-            )
-        else:
-            preprocessor = get_linear_preprocessor(
-                numerical_features, categorical_features
-            )
+        # All candidate models are tree-based → same tree preprocessor.
+        preprocessor = get_tree_preprocessor(
+            numerical_features, categorical_features
+        )
 
         pipeline = Pipeline([
             ("preprocessor", preprocessor),
@@ -127,18 +104,19 @@ def tune_model(
         ])
 
         param_grid = get_param_grid(model_name)
-        kf = KFold(n_splits=3, shuffle=True, random_state=42)   # 3-fold: faster tuning on ~31k rows
+        # 3-fold keeps tuning tractable on ~31k rows.
+        kf = KFold(n_splits=3, shuffle=True, random_state=42)
 
         random_search = RandomizedSearchCV(
-                    estimator=pipeline,
-                    param_distributions=param_grid,
-                    n_iter=25,              # tractable search budget (was 50)
-                    scoring=neg_mape_scorer,
-                    cv=kf,
-                    verbose=1,
-                    random_state=42,
-                    n_jobs=-1
-                                        )
+            estimator=pipeline,
+            param_distributions=param_grid,
+            n_iter=25,
+            scoring=neg_mape_scorer,
+            cv=kf,
+            verbose=1,
+            random_state=42,
+            n_jobs=-1
+        )
 
         random_search.fit(X_train, y_train_log)
         best_model = random_search.best_estimator_
@@ -170,10 +148,18 @@ def tune_model(
         )
         logger.info(
             f"{model_name} Test — R2: {round(test_r2, 4)} | "
+            f"MAE: {round(test_mae, 4)} | "
+            f"RMSE: {round(test_rmse, 4)} | "
             f"MAPE: {round(test_mape, 2)}%"
         )
 
-        return best_model
+        return {
+            "pipeline": best_model,
+            "best_params": random_search.best_params_,
+            "test_mape": round(test_mape, 2),
+            "test_r2": round(test_r2, 4),
+            "train_mape": round(train_mape, 2),
+        }
 
     except Exception as e:
         logger.error(f"Tuning failed for {model_name}: {e}", exc_info=True)

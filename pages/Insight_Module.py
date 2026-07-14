@@ -46,9 +46,10 @@ class ExplainerBundle:
     base_value: float
 
 
-def build_explainer(stack) -> ExplainerBundle:
-    base = stack.named_estimators_[BASE_MODEL]
-    pre = base.named_steps["preprocessor"]; reg = base.named_steps["regressor"]
+def build_explainer(pipeline) -> ExplainerBundle:
+    # Deployed model is a single LightGBM Pipeline (preprocessor + regressor),
+    # so SHAP's TreeExplainer runs directly on its regressor.
+    pre = pipeline.named_steps["preprocessor"]; reg = pipeline.named_steps["regressor"]
     feat_names = [f.split("__")[-1] for f in pre.get_feature_names_out()]
     expl = shap.TreeExplainer(reg)
     return ExplainerBundle(expl, pre, feat_names, float(np.ravel(expl.expected_value)[0]))
