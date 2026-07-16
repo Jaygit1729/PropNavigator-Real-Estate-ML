@@ -14,7 +14,6 @@ st.set_page_config(
     layout="wide"
 )
 
-
 # Constants
 
 BASE_DIR  = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
