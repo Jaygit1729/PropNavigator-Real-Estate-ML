@@ -1,6 +1,6 @@
 outs:
-- md5: 17b5bb0e7b5a3727e1c8dd45e3c2252a.dir
-  size: 34211
+- md5: 6a089d938c32b9f136dd54460482d05c.dir
+  size: 27533
   nfiles: 5
   hash: md5
   path: insight_module
