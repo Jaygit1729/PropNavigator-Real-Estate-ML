@@ -24,7 +24,7 @@ TYPE_REF   = os.path.join(BASE_DIR, "data", "price_prediction", "type_reference.
 
 FEATURES = [
     'area', 'dist_to_golf_road', 'total_floor', 'bathroom', 'property_type',
-    'dist_to_cyber_city', 'society', 'covered_parking', 'dist_to_manesar', 'sector',
+    'dist_to_cyber_city', 'covered_parking', 'dist_to_manesar', 'sector',
     'dist_to_airport', 'bedRoom', 'furnishing', 'balcony', 'age_possession_category',
     'facing', 'has_ac', 'total_parking', 'open_parking', 'has_power_backup',
     'is_corner', 'floornum_category', 'ov_main_road', 'has_pool', 'ov_others',
@@ -67,7 +67,6 @@ def build_input_row(inp, sector_ref, type_ref):
         'total_floor': total_floor,
         'bathroom': int(inp['bathroom']),
         'property_type': pt,
-        'society': sr['society'].iloc[0] if not sr.empty else 'other',
         'covered_parking': covered,
         'open_parking': CONST['open_parking'],
         'sector': inp['sector'],
@@ -112,9 +111,9 @@ sectors    = sorted(sector_ref['sector'].tolist())
 
 st.title("🏡 PropNavigator: Property Price Estimator")
 st.caption(
-    f"Estimate a Gurgaon property's price with the deployed stacking model "
-    f"(**{model_name}**, ~{mape_pct:.1f}% MAPE). Just the essentials — society, location and "
-    "building details are inferred for you."
+    f"Estimate a Gurgaon property's price with the deployed model "
+    f"(**{model_name}**, ~{mape_pct:.1f}% MAPE). Just the essentials — location and "
+    "building details are inferred from the sector for you."
 )
 st.divider()
 
@@ -180,7 +179,7 @@ if st.button("💰 Estimate Price", type="primary", use_container_width=True):
 
             st.success(f"### 💵 Estimated Price: ₹ {price} Crore")
             st.info(f"📊 90% Price Range: **₹ {lo} Cr — ₹ {hi} Cr**")
-            st.caption(f"Model: **{model_name}**  ·  inferred society: *{input_df['society'].iloc[0]}*")
+            st.caption(f"Model: **{model_name}**  ·  sector: *{input_df['sector'].iloc[0]}*")
 
             log_prediction(
                 model_name,

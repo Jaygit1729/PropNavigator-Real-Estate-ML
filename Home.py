@@ -66,7 +66,7 @@ with col4:
         st.caption(
             "Understand what drives prices — globally and for any specific "
             "home. Model-true explanations via **SHAP** on the deployed "
-            "stacking ensemble."
+            "LightGBM model."
         )
 
 st.divider()
@@ -111,9 +111,10 @@ with col1:
 with col2:
     st.markdown("**Model Building**")
     st.caption(
-        "Tree models (RandomForest, XGBoost, LightGBM, CatBoost) with log target "
-        "transformation and stratified split, tuned via RandomizedSearchCV, combined "
-        "in a **stacking ensemble**. Best model: Stacking at ~10.5% MAPE (R² 0.94)."
+        "Gradient-boosting models (XGBoost, LightGBM, CatBoost) with log target "
+        "transformation and stratified split, tuned via RandomizedSearchCV; the single "
+        "best model ships. Best model: **LightGBM at ~11.2% MAPE (R² 0.93)**, trained on "
+        "24 features — `society` was dropped because it can't be obtained at prediction time."
     )
 
     st.markdown("**Recommendation Engine**")
@@ -125,7 +126,7 @@ with col2:
 
     st.markdown("**Pricing Insights**")
     st.caption(
-        "SHAP applied to the stacking model's tree base for model-true, per-feature "
+        "SHAP applied directly to the deployed LightGBM model for model-true, per-feature "
         "explanations — global price drivers and a local breakdown of any single "
         "valuation, on the model's own log-price scale."
     )

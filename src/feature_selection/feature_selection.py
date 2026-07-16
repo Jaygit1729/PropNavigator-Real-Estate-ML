@@ -10,7 +10,7 @@ logger.info("Feature Selection logging initialized.")
 
 SELECTED_FEATURES = [
     'area', 'dist_to_golf_road', 'total_floor', 'bathroom', 'property_type',
-    'dist_to_cyber_city', 'society', 'covered_parking', 'dist_to_manesar', 'sector',
+    'dist_to_cyber_city', 'covered_parking', 'dist_to_manesar', 'sector',
     'dist_to_airport', 'bedRoom', 'furnishing', 'balcony', 'age_possession_category',
     'facing', 'has_ac', 'total_parking', 'open_parking', 'has_power_backup',
     'is_corner', 'floornum_category', 'ov_main_road', 'has_pool', 'ov_others',

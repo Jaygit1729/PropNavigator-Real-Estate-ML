@@ -164,6 +164,9 @@ def run_model_building(fs_df: pd.DataFrame):
                 mlflow.log_param("model_type", name)
                 mlflow.log_param("test_size", 0.2)
                 mlflow.log_param("random_state", 42)
+                # Log the feature count so every run self-describes in the UI
+                # (24 = society dropped, 25 = society included).
+                mlflow.log_param("n_features", X_train.shape[1])
                 mlflow.log_params(info["best_params"])
                 mlflow.log_metric("test_mape", info["test_mape"])
                 mlflow.log_metric("test_r2", info["test_r2"])

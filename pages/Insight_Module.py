@@ -21,11 +21,10 @@ MODEL_PATH = os.path.join(BASE_DIR, "artifacts", "best_model.joblib")
 DATA_DIR   = os.path.join(BASE_DIR, "data", "insight_module")
 FS_PATH    = os.path.join(BASE_DIR, "data", "fs", "feature_selected_properties.csv")
 TARGET     = "price_in_cr"
-BASE_MODEL = "LightGBM"
 
 FEATURES = [
     'area', 'dist_to_golf_road', 'total_floor', 'bathroom', 'property_type',
-    'dist_to_cyber_city', 'society', 'covered_parking', 'dist_to_manesar', 'sector',
+    'dist_to_cyber_city', 'covered_parking', 'dist_to_manesar', 'sector',
     'dist_to_airport', 'bedRoom', 'furnishing', 'balcony', 'age_possession_category',
     'facing', 'has_ac', 'total_parking', 'open_parking', 'has_power_backup',
     'is_corner', 'floornum_category', 'ov_main_road', 'has_pool', 'ov_others',
@@ -75,7 +74,6 @@ def build_input_row(inp, ref, type_ref):
     row = {
         'area': float(inp['area']), 'total_floor': total_floor,
         'bathroom': int(inp['bathroom']), 'property_type': inp['property_type'],
-        'society': inp.get('society') or (r['society'].iloc[0] if not r.empty else 'other'),
         'covered_parking': covered, 'open_parking': CONST['open_parking'],
         'sector': inp['sector'], 'bedRoom': int(inp['bedRoom']),
         'furnishing': inp.get('furnishing', 'semi-furnished'), 'balcony': float(tr['balcony']),
@@ -201,7 +199,7 @@ with col_a:
 
 with col_b:
     st.subheader("🏢 Top Societies by Premium")
-    st.caption("Brand/quality premium of each society for the same unit.")
+    st.caption("Observed ₹/sqft vs the Gurgaon median — measured from actual listings, not model-derived.")
     top_soc = soc_prem.head(12).sort_values("premium_pct")
     fig = px.bar(top_soc, x="premium_pct", y="society", orientation="h", color="premium_pct",
                  color_continuous_scale="Purp", labels={"premium_pct": "Premium vs median (%)", "society": ""})
@@ -248,5 +246,6 @@ st.plotly_chart(fig_l, use_container_width=True)
 # Footer
 
 st.divider()
-st.caption(f"🔍 All figures are computed live from the deployed stacking model "
-           f"(test MAPE ≈ {mape_pct:.1f}%). Estimates reflect learned patterns, not causal guarantees.")
+st.caption(f"🔍 Simulator, sector premiums and SHAP are computed live from the deployed **{model_name}** model "
+           f"(test MAPE ≈ {mape_pct:.1f}%); society premiums are measured directly from listings. "
+           f"Estimates reflect learned patterns, not causal guarantees.")
