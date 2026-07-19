@@ -112,9 +112,11 @@ with col2:
     st.markdown("**Model Building**")
     st.caption(
         "Gradient-boosting models (XGBoost, LightGBM, CatBoost) with log target "
-        "transformation and stratified split, tuned via RandomizedSearchCV; the single "
-        "best model ships. Best model: **LightGBM at ~11.2% MAPE (R² 0.93)**, trained on "
-        "24 features — `society` was dropped because it can't be obtained at prediction time."
+        "transformation and a stratified 60/20/20 train/validation/test split, tuned via "
+        "RandomizedSearchCV. The winning family is chosen on **validation**; the test set is "
+        "scored once, at the end, so the reported number isn't inflated by the choice. "
+        "Best model: **LightGBM at 11.39% MAPE (R² 0.91)** on the held-out test set, trained "
+        "on 24 features — `society` was dropped because it can't be obtained at prediction time."
     )
 
     st.markdown("**Recommendation Engine**")

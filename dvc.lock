@@ -137,8 +137,8 @@ stages:
       size: 8719550
     - path: src/feature_selection/feature_selection.py
       hash: md5
-      md5: 0c5f9e2abc58fed8dc47068d3a9d2c5b
-      size: 1278
+      md5: ebedfd07f9ce70a0682269c6ea91a181
+      size: 2014
     - path: src/run_stage.py
       hash: md5
       md5: 09821ae6bfdda406fb941481a4df8ba7
@@ -146,5 +146,5 @@ stages:
     outs:
     - path: data/fs/feature_selected_properties.csv
       hash: md5
-      md5: a1b2895fdb8b4e8ecf8aee66604c203b
-      size: 7355370
+      md5: d7c485e71667d031ee3a9b4a667cd722
+      size: 7198528

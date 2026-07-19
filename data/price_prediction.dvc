@@ -1,6 +1,6 @@
 outs:
-- md5: a82b32a3fc3a8b54a8546bbc086c3683.dir
-  size: 11539
+- md5: 67a9c892035a326a3f47e996adcc6883.dir
+  size: 11526
   nfiles: 2
   hash: md5
   path: price_prediction

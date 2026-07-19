@@ -145,13 +145,15 @@ Cooldown intervals prevented blocking
 
 📊 Final Dataset
 
-Approximately 6,000 residential properties across multiple property types:
+Approximately 39,000 residential properties across multiple property types:
 
-Flats
+Flats — ~28,400
 
-Independent Houses
+Independent Builder Floors — ~9,000
 
-Independent Builder Floors
+Independent Houses — ~1,700
+
+(39,621 rows after cleaning and merging; 39,065 after outlier removal and preprocessing.)
 
 ⚙️ Feature Engineering
 

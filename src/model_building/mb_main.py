@@ -3,6 +3,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_percentage_error, r2_score
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from catboost import CatBoostRegressor
@@ -30,35 +31,52 @@ EXPERIMENT_NAME = "propnavigator-model-building"
 REGISTERED_MODEL_NAME = "propnavigator-price-model"
 
 
-def create_train_test_split(df: pd.DataFrame):
+def create_train_val_test_split(df: pd.DataFrame):
     """
-    Single source of truth for the train/test split.
-    Stratifies on price bins so the same rows land in train vs test
-    consistently across the pipeline.
+    Single source of truth for the 60/20/20 train / validation / test split.
+
+    Why three splits and not two: every time data is used to MAKE A CHOICE it
+    can no longer give an honest score for what was chosen. Hyperparameters are
+    chosen by CV on train; the winning model FAMILY is chosen on validation;
+    test is touched exactly once, at the end, to report. Selecting the family on
+    test — as this pipeline previously did — makes the headline metric
+    optimistic, because whichever model got luckiest on those rows wins.
+
+    Stratified on price quintiles so all three splits span the price range.
     """
     X = df.drop(columns=[TARGET_COL])
     y = df[TARGET_COL]
     y_log = transform_target(y)
     price_bins = pd.qcut(y, q=5, labels=False)
 
-    X_train, X_test, y_train_log, y_test_log = train_test_split(
-        X, y_log,
+    # First carve off the test set (20%) and leave it alone until the very end.
+    X_temp, X_test, y_temp_log, y_test_log, bins_temp, _ = train_test_split(
+        X, y_log, price_bins,
         stratify=price_bins,
         test_size=0.2,
         random_state=42
     )
-    return X_train, X_test, y_train_log, y_test_log
+
+    # Then split the remainder into train (60% of all) and validation (20% of all).
+    X_train, X_val, y_train_log, y_val_log = train_test_split(
+        X_temp, y_temp_log,
+        stratify=bins_temp,
+        test_size=0.25,          # 0.25 of the remaining 80% = 20% overall
+        random_state=42
+    )
+    return X_train, X_val, X_test, y_train_log, y_val_log, y_test_log
 
 
 def run_model_building(fs_df: pd.DataFrame):
     """
     Model building pipeline:
-        1. Split data (stratified on price bins)
+        1. Split data 60/20/20 into train / validation / test
         2. Derive feature lists from training data
-        3. Tune XGBoost, LightGBM, CatBoost (RandomizedSearchCV)
-        4. Pick the single best model by test MAPE
-        5. Log every tuned model to MLflow; register the winner
-        6. Save best model via MAPE-gated persistence
+        3. Tune XGBoost, LightGBM, CatBoost (RandomizedSearchCV on train)
+        4. Pick the single best model by VALIDATION MAPE
+        5. Score the winner on the untouched test set — the reported number
+        6. Log every tuned model to MLflow; register the winner
+        7. Save best model via MAPE-gated persistence
 
     Note: RandomForest and stacking were intentionally dropped. On this
     tabular data the gradient-boosting trio wins, RandomForest was the
@@ -69,11 +87,11 @@ def run_model_building(fs_df: pd.DataFrame):
         logger.info("Model building pipeline started.")
         logger.info(f"Input shape: {fs_df.shape}")
 
-        X_train, X_test, y_train_log, y_test_log = create_train_test_split(
-            fs_df
-        )
+        (X_train, X_val, X_test,
+         y_train_log, y_val_log, y_test_log) = create_train_val_test_split(fs_df)
         logger.info(
-            f"Train shape: {X_train.shape} | Test shape: {X_test.shape}"
+            f"Train shape: {X_train.shape} | Val shape: {X_val.shape} | "
+            f"Test shape: {X_test.shape}"
         )
 
         # Feature lists derived dynamically from training data, so changes
@@ -114,8 +132,8 @@ def run_model_building(fs_df: pd.DataFrame):
                 model=model,
                 X_train=X_train,
                 y_train_log=y_train_log,
-                X_test=X_test,
-                y_test_log=y_test_log,
+                X_val=X_val,
+                y_val_log=y_val_log,
                 numerical_features=numerical_features,
                 categorical_features=categorical_features
             )
@@ -123,26 +141,42 @@ def run_model_building(fs_df: pd.DataFrame):
                 logger.warning(f"Skipping {name} — tuning returned None.")
                 continue
             results[name] = info
-            logger.info(f"{name} tuned Test MAPE: {info['test_mape']}%")
+            logger.info(f"{name} tuned Validation MAPE: {info['val_mape']}%")
 
         if not results:
             logger.error("All models failed tuning. No model saved.")
             return {}
 
-        # Pick the single best model by test MAPE.
+        # Pick the winner on VALIDATION — test stays untouched so the number
+        # we report is not inflated by having been used to choose.
         best_model_name = min(
-            results, key=lambda n: results[n]["test_mape"]
+            results, key=lambda n: results[n]["val_mape"]
         )
         best_info = results[best_model_name]
         best_pipeline = best_info["pipeline"]
-        best_test_mape = best_info["test_mape"]
+        best_val_mape = best_info["val_mape"]
         logger.info(
-            f"Best model: {best_model_name} ({best_test_mape}% MAPE)"
+            f"Best model by validation: {best_model_name} "
+            f"({best_val_mape}% val MAPE)"
         )
 
-        # Residual quantiles for calibrated prediction intervals.
-        y_pred = inverse_transform_target(best_pipeline.predict(X_test))
-        y_true = inverse_transform_target(y_test_log)
+        # Now — and only now — score the winner on the held-out test set.
+        # This single number is the honest, reportable performance.
+        y_test_pred = inverse_transform_target(best_pipeline.predict(X_test))
+        y_test_true = inverse_transform_target(y_test_log)
+        best_test_mape = round(
+            mean_absolute_percentage_error(y_test_true, y_test_pred) * 100, 2
+        )
+        best_test_r2 = round(r2_score(y_test_true, y_test_pred), 4)
+        logger.info(
+            f"HELD-OUT TEST — {best_model_name}: "
+            f"MAPE {best_test_mape}% | R2 {best_test_r2}"
+        )
+
+        # Residual quantiles for prediction intervals, calibrated on VALIDATION
+        # so the test set is used for reporting only.
+        y_pred = inverse_transform_target(best_pipeline.predict(X_val))
+        y_true = inverse_transform_target(y_val_log)
         pct_errors = (y_true - y_pred) / y_pred
         residual_quantiles = {
             "q05": float(np.percentile(pct_errors, 5)),
@@ -162,17 +196,22 @@ def run_model_building(fs_df: pd.DataFrame):
         for name, info in results.items():
             with mlflow.start_run(run_name=name):
                 mlflow.log_param("model_type", name)
-                mlflow.log_param("test_size", 0.2)
+                mlflow.log_param("split", "60/20/20 train/val/test")
+                mlflow.log_param("selected_on", "validation")
                 mlflow.log_param("random_state", 42)
                 # Log the feature count so every run self-describes in the UI
                 # (24 = society dropped, 25 = society included).
                 mlflow.log_param("n_features", X_train.shape[1])
                 mlflow.log_params(info["best_params"])
-                mlflow.log_metric("test_mape", info["test_mape"])
-                mlflow.log_metric("test_r2", info["test_r2"])
+                mlflow.log_metric("val_mape", info["val_mape"])
+                mlflow.log_metric("val_r2", info["val_r2"])
                 mlflow.log_metric("train_mape", info["train_mape"])
                 if name == best_model_name:
                     mlflow.log_param("is_best", True)
+                    # Only the winner gets a test score — logged here so the
+                    # UI shows exactly one honest, held-out number.
+                    mlflow.log_metric("test_mape", best_test_mape)
+                    mlflow.log_metric("test_r2", best_test_r2)
                     mlflow.sklearn.log_model(
                         best_pipeline,
                         name="model",
@@ -196,9 +235,11 @@ def run_model_building(fs_df: pd.DataFrame):
 
         return {
             "best_model_name": best_model_name,
+            "best_val_mape": best_val_mape,
             "best_test_mape": best_test_mape,
-            "all_results": {
-                n: i["test_mape"] for n, i in results.items()
+            "best_test_r2": best_test_r2,
+            "all_val_results": {
+                n: i["val_mape"] for n, i in results.items()
             },
         }
 

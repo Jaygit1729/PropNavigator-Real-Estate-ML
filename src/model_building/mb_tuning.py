@@ -71,21 +71,24 @@ def tune_model(
     model,
     X_train,
     y_train_log,
-    X_test,
-    y_test_log,
+    X_val,
+    y_val_log,
     numerical_features: list,
     categorical_features: list
 ):
     """
     Runs RandomizedSearchCV for the given model and evaluates the best
-    estimator on train and test sets (metrics on original price scale).
+    estimator on train and VALIDATION sets (metrics on original price scale).
+
+    Deliberately never sees the test set: the caller picks the winning model
+    family from these validation scores, and only the winner is scored on test.
 
     Returns a dict:
         {
             "pipeline":    fitted best pipeline,
             "best_params": winning hyperparameters,
-            "test_mape":   test MAPE (%),
-            "test_r2":     test R2,
+            "val_mape":    validation MAPE (%),
+            "val_r2":      validation R2,
             "train_mape":  train MAPE (%),
         }
     or None if tuning fails.
@@ -129,13 +132,13 @@ def tune_model(
             y_train_true, y_train_pred
         ) * 100
 
-        # Test metrics on original price scale
-        y_pred = inverse_transform_target(best_model.predict(X_test))
-        y_true = inverse_transform_target(y_test_log)
-        test_r2 = r2_score(y_true, y_pred)
-        test_mae = mean_absolute_error(y_true, y_pred)
-        test_rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-        test_mape = mean_absolute_percentage_error(y_true, y_pred) * 100
+        # Validation metrics on original price scale (used to pick the winner)
+        y_pred = inverse_transform_target(best_model.predict(X_val))
+        y_true = inverse_transform_target(y_val_log)
+        val_r2 = r2_score(y_true, y_pred)
+        val_mae = mean_absolute_error(y_true, y_pred)
+        val_rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        val_mape = mean_absolute_percentage_error(y_true, y_pred) * 100
 
         logger.info(
             f"{model_name} best CV MAPE: "
@@ -147,17 +150,17 @@ def tune_model(
             f"MAPE: {round(train_mape, 2)}%"
         )
         logger.info(
-            f"{model_name} Test — R2: {round(test_r2, 4)} | "
-            f"MAE: {round(test_mae, 4)} | "
-            f"RMSE: {round(test_rmse, 4)} | "
-            f"MAPE: {round(test_mape, 2)}%"
+            f"{model_name} Validation — R2: {round(val_r2, 4)} | "
+            f"MAE: {round(val_mae, 4)} | "
+            f"RMSE: {round(val_rmse, 4)} | "
+            f"MAPE: {round(val_mape, 2)}%"
         )
 
         return {
             "pipeline": best_model,
             "best_params": random_search.best_params_,
-            "test_mape": round(test_mape, 2),
-            "test_r2": round(test_r2, 4),
+            "val_mape": round(val_mape, 2),
+            "val_r2": round(val_r2, 4),
             "train_mape": round(train_mape, 2),
         }
 
