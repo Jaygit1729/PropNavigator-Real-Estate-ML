@@ -101,11 +101,13 @@ with col1:
         "four key landmarks, and leakage-free binary amenity flags."
     )
 
-    st.markdown("**Furnishing Classification**")
+    st.markdown("**Data Quality & Leakage Control**")
     st.caption(
-        "KMeans clustering on 18 furnishing item counts to classify properties "
-        "as Furnished, Semi-Furnished, or Unfurnished — validated using "
-        "silhouette analysis and domain knowledge."
+        "Three property-type-specific cleaners unioned on a common schema, "
+        "domain-constant outlier rules, and de-duplication on the final feature "
+        "set so no property appears in both train and test. Imputation is "
+        "deliberately avoided — tree models handle missing values natively, "
+        "which keeps full-dataset statistics out of the training split."
     )
 
 with col2:
