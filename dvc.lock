@@ -117,8 +117,8 @@ stages:
       size: 59738209
     - path: src/data_preprocessing/pre_process_data.py
       hash: md5
-      md5: ccf9e8467eae8c7fc83219f567a8b3cf
-      size: 9312
+      md5: 1006caf46dea87d03b66c539d10cbf67
+      size: 8948
     - path: src/run_stage.py
       hash: md5
       md5: 09821ae6bfdda406fb941481a4df8ba7
@@ -126,15 +126,15 @@ stages:
     outs:
     - path: data/pp/preprocessed_properties.csv
       hash: md5
-      md5: cd1ed0e3e92b053e8f3377c40c958a1b
-      size: 8719550
+      md5: d9b8dae075f743cda87eef7ef9a4b384
+      size: 8705688
   feature_selection:
     cmd: python -m src.run_stage feature_selection
     deps:
     - path: data/pp/preprocessed_properties.csv
       hash: md5
-      md5: cd1ed0e3e92b053e8f3377c40c958a1b
-      size: 8719550
+      md5: d9b8dae075f743cda87eef7ef9a4b384
+      size: 8705688
     - path: src/feature_selection/feature_selection.py
       hash: md5
       md5: ebedfd07f9ce70a0682269c6ea91a181
@@ -146,5 +146,5 @@ stages:
     outs:
     - path: data/fs/feature_selected_properties.csv
       hash: md5
-      md5: d7c485e71667d031ee3a9b4a667cd722
-      size: 7198528
+      md5: 901b8f08e994abaf66eda59d48913b76
+      size: 7185782

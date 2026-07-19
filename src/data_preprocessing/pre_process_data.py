@@ -83,14 +83,21 @@ def fill_balcony_nulls(df):
     return df
 
 
-def impute_distance_nulls(df):
-    
-    """Rows with un-fixable coordinates -> median distance per landmark."""
-    df = df.copy()
-    for col in DIST_COLS:
-        df[col] = df[col].fillna(df[col].median())
-    logger.info("distance nulls filled with median.")
-    return df
+# NOTE — distance nulls are deliberately NOT imputed (187 rows, ~0.5%).
+#
+# This step used to be `df[col].fillna(df[col].median())`. That median was computed
+# over the WHOLE dataset, including rows that later become the test set — a textbook
+# leak: test statistics influenced training inputs.
+#
+# Rather than move the median into the model pipeline, we drop the imputation
+# entirely. XGBoost, LightGBM and CatBoost all handle NaN natively: they learn which
+# side of a split missing values belong on. That is strictly more informative than a
+# median, which asserts "averagely far from everything" about a property whose
+# coordinates we could not resolve.
+#
+# Trade-off: this couples preprocessing to models that tolerate NaN. All three
+# candidates are tree ensembles, so it holds — but a linear model would need
+# imputation reinstated, fitted on the training split only.
 
 
 def clean_facing(df):
@@ -113,41 +120,18 @@ def clean_furnishing(df):
     return df
 
 
-# age possession: 3-pass mode imputation
-# Pass 1: mode within same sector AND property_type (most specific)
-# Pass 2: mode within same sector
-# Pass 3: mode within same property_type (broadest)
-
-def mode_based_imputation(row, df):
-    if row['age_possession_category'] == 'Undefined':
-        mode_value = df[
-            (df['sector'] == row['sector']) &
-            (df['property_type'] == row['property_type'])
-        ]['age_possession_category'].mode()
-        return mode_value.iloc[0] if not mode_value.empty else row['age_possession_category']
-    return row['age_possession_category']
-
-
-def mode_based_imputation2(row, df):
-    if row['age_possession_category'] == 'Undefined':
-        mode_value = df[df['sector'] == row['sector']]['age_possession_category'].mode()
-        return mode_value.iloc[0] if not mode_value.empty else row['age_possession_category']
-    return row['age_possession_category']
-
-
-def mode_based_imputation3(row, df):
-    if row['age_possession_category'] == 'Undefined':
-        mode_value = df[df['property_type'] == row['property_type']]['age_possession_category'].mode()
-        return mode_value.iloc[0] if not mode_value.empty else row['age_possession_category']
-    return row['age_possession_category']
-
-
-def impute_age_possession_category(df):
-    """Apply 3-pass mode-based imputation for age_possession_category."""
-    df = df.copy()
-    df['age_possession_category'] = df.apply(lambda row: mode_based_imputation(row, df), axis=1)
-    df['age_possession_category'] = df.apply(lambda row: mode_based_imputation2(row, df), axis=1)
-    df['age_possession_category'] = df.apply(lambda row: mode_based_imputation3(row, df), axis=1)
+# NOTE — 'Undefined' age_possession_category is deliberately LEFT AS IS (150 rows, ~0.4%).
+#
+# This step used to be a 3-pass mode imputation: fill 'Undefined' with the most common
+# value in the same sector+type, then the same sector, then the same property type.
+# Every one of those modes was computed over the WHOLE dataset, so test rows shaped the
+# values written into training rows — a leak.
+#
+# 'Undefined' is now kept as its own category, which is exactly how this pipeline
+# already treats unknown `facing` and `furnishing` ('unknown'). "We don't know" is real
+# information; the OrdinalEncoder gives it a code and the model decides what it's worth.
+# Zero leakage, no guessing, and it removes the slowest step in preprocessing (three
+# row-wise .apply() passes over ~39k rows).
     logger.info("Applied 3-pass mode-based imputation for age_possession_category.")
     return df
 
@@ -245,10 +229,8 @@ def preprocessing(df: pd.DataFrame):
             .pipe(fill_floor_nulls)
             .pipe(fill_parking_nulls)
             .pipe(fill_balcony_nulls)
-            .pipe(impute_distance_nulls)
             .pipe(clean_facing)
             .pipe(clean_furnishing)
-            .pipe(impute_age_possession_category)
             .pipe(cap_rare_societies)
             .pipe(remove_area_outliers)            # univariate
             .pipe(remove_price_area_outliers)      # bivariate: price vs area

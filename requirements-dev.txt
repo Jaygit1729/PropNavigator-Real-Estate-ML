@@ -1,0 +1,6 @@
+# Development / CI dependencies — NOT needed to run the app or the API.
+# Install with:  pip install -r requirements-dev.txt
+#
+# Kept separate from requirements-api.txt so the serving Docker image stays lean.
+pytest==9.1.1
+httpx==0.28.1        # required by fastapi.testclient (TestClient drives the app in-process)

@@ -97,8 +97,8 @@ with col1:
     st.markdown("**Feature Engineering**")
     st.caption(
         "Domain-driven features including sector standardization across 350+ raw labels, "
-        "area consolidation across multiple measurement types, and a price-driven "
-        "luxury score computed from amenity pricing premiums."
+        "area consolidation across multiple measurement types, geo-distance features to "
+        "four key landmarks, and leakage-free binary amenity flags."
     )
 
     st.markdown("**Furnishing Classification**")
@@ -115,7 +115,7 @@ with col2:
         "transformation and a stratified 60/20/20 train/validation/test split, tuned via "
         "RandomizedSearchCV. The winning family is chosen on **validation**; the test set is "
         "scored once, at the end, so the reported number isn't inflated by the choice. "
-        "Best model: **LightGBM at 11.39% MAPE (R² 0.91)** on the held-out test set, trained "
+        "Best model: **LightGBM at 11.57% MAPE (R² 0.92)** on the held-out test set, trained "
         "on 24 features — `society` was dropped because it can't be obtained at prediction time."
     )
 
@@ -148,7 +148,7 @@ with t1:
 
 with t2:
     st.markdown("**ML**")
-    st.caption("Scikit-learn · XGBoost · KMeans")
+    st.caption("Scikit-learn · LightGBM · XGBoost · CatBoost · SHAP")
 
 with t3:
     st.markdown("**Scraping**")

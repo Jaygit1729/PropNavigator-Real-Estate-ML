@@ -190,39 +190,13 @@ def run_model_building(fs_df: pd.DataFrame):
             f"{residual_quantiles['q95']:.3f}]"
         )
 
-        # MLflow: one run per tuned model; the winner's model is logged
-        # and registered in the Model Registry.
-        mlflow.set_experiment(EXPERIMENT_NAME)
-        for name, info in results.items():
-            with mlflow.start_run(run_name=name):
-                mlflow.log_param("model_type", name)
-                mlflow.log_param("split", "60/20/20 train/val/test")
-                mlflow.log_param("selected_on", "validation")
-                mlflow.log_param("random_state", 42)
-                # Log the feature count so every run self-describes in the UI
-                # (24 = society dropped, 25 = society included).
-                mlflow.log_param("n_features", X_train.shape[1])
-                mlflow.log_params(info["best_params"])
-                mlflow.log_metric("val_mape", info["val_mape"])
-                mlflow.log_metric("val_r2", info["val_r2"])
-                mlflow.log_metric("train_mape", info["train_mape"])
-                if name == best_model_name:
-                    mlflow.log_param("is_best", True)
-                    # Only the winner gets a test score — logged here so the
-                    # UI shows exactly one honest, held-out number.
-                    mlflow.log_metric("test_mape", best_test_mape)
-                    mlflow.log_metric("test_r2", best_test_r2)
-                    mlflow.sklearn.log_model(
-                        best_pipeline,
-                        name="model",
-                        serialization_format="cloudpickle",
-                        registered_model_name=REGISTERED_MODEL_NAME
-                    )
-        logger.info("MLflow logging complete.")
-
-        # Save best model via MAPE-gated persistence (unchanged artifact
-        # contract: dict with pipeline / model_name / test_mape_percent /
-        # residual_quantiles — the Streamlit pages depend on this).
+        # Persist the model FIRST. Training costs minutes; MLflow logging talks to
+        # a remote server and can fail for reasons that have nothing to do with the
+        # model (network, auth, console encoding). A logging failure must never
+        # destroy a trained model, so the local artifact is written before any of it.
+        #
+        # Artifact contract is unchanged (dict with pipeline / model_name /
+        # test_mape_percent / residual_quantiles) — the Streamlit pages depend on it.
         save_model(
             model_pipeline=best_pipeline,
             model_name=best_model_name,
@@ -230,6 +204,43 @@ def run_model_building(fs_df: pd.DataFrame):
             filepath="artifacts/best_model.joblib",
             residual_quantiles=residual_quantiles
         )
+
+        # MLflow: one run per tuned model; the winner's model is logged and
+        # registered. Wrapped so a tracking-server problem degrades to a warning
+        # rather than failing the whole pipeline.
+        try:
+            mlflow.set_experiment(EXPERIMENT_NAME)
+            for name, info in results.items():
+                with mlflow.start_run(run_name=name):
+                    mlflow.log_param("model_type", name)
+                    mlflow.log_param("split", "60/20/20 train/val/test")
+                    mlflow.log_param("selected_on", "validation")
+                    mlflow.log_param("random_state", 42)
+                    # Log the feature count so every run self-describes in the UI
+                    # (24 = society dropped, 25 = society included).
+                    mlflow.log_param("n_features", X_train.shape[1])
+                    mlflow.log_params(info["best_params"])
+                    mlflow.log_metric("val_mape", info["val_mape"])
+                    mlflow.log_metric("val_r2", info["val_r2"])
+                    mlflow.log_metric("train_mape", info["train_mape"])
+                    if name == best_model_name:
+                        mlflow.log_param("is_best", True)
+                        # Only the winner gets a test score — logged here so the
+                        # UI shows exactly one honest, held-out number.
+                        mlflow.log_metric("test_mape", best_test_mape)
+                        mlflow.log_metric("test_r2", best_test_r2)
+                        mlflow.sklearn.log_model(
+                            best_pipeline,
+                            name="model",
+                            serialization_format="cloudpickle",
+                            registered_model_name=REGISTERED_MODEL_NAME
+                        )
+            logger.info("MLflow logging complete.")
+        except Exception as e:
+            logger.warning(
+                f"MLflow logging failed ({e}). The model is already saved locally; "
+                f"continuing."
+            )
 
         logger.info("Model building pipeline completed successfully.")
 
