@@ -1,0 +1,47 @@
+
+
+# The virtualenv — 32k files, over a GB. The single biggest offender.
+prop/
+
+# Git history
+.git/
+
+# Not needed to run the Streamlit app
+notebooks/
+docs/
+tests/
+api/
+logs/
+.devcontainer/
+.vscode/
+requirements-api.txt
+requirements-dev.txt
+Dockerfile*
+
+# Caches
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.dvc/
+
+# Data folders the Streamlit app doesn't read
+data/web_scraping/
+data/data_cleaning/
+data/fe/
+data/pp/
+data/error_analysis/
+
+# src/ submodules the app doesn't import (only src/monitoring is used)
+src/data_cleaning/
+src/data_ingestions/
+src/data_preprocessing/
+src/feature_engineering/
+src/feature_selection/
+src/model_building/
+src/run_stage.py
+src/main.py
+src/logger_utils.py
+
+# Old model backups (only best_model.joblib is copied)
+artifacts/best_model_*.joblib
+artifacts/experiment_log.csv

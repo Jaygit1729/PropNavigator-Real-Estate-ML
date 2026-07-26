@@ -1,0 +1,42 @@
+# The virtualenv — 32k files, over a GB.
+prop/
+
+# Git history
+.git/
+
+# Everything not needed to SERVE the model
+
+notebooks/
+docs/
+tests/
+pages/
+src/
+logs/
+.streamlit/
+.devcontainer/
+.vscode/
+Home.py
+README.md
+requirements.txt
+requirements-dev.txt
+
+# Caches
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.dvc/
+
+# Data folders the API doesn't use (Dockerfile copies only data/price_prediction/)
+data/web_scraping/
+data/data_cleaning/
+data/fe/
+data/pp/
+data/fs/
+data/analytics_module/
+data/insight_module/
+data/recommender/
+data/error_analysis/
+
+# Old model backups (Dockerfile copies only best_model.joblib)
+artifacts/best_model_*.joblib
+artifacts/experiment_log.csv

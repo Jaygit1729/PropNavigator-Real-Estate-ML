@@ -1,0 +1,26 @@
+# Runs the API and the Streamlit app together, on a shared network Docker
+# creates automatically for this file. Each service is reachable by its name
+# below (e.g. "api") instead of "localhost"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"        
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      # Price_Prediction.py reads this env var; inside compose the API is
+      # reachable by its service name "api", not "localhost".
+      - API_URL=http://api:8000
+    depends_on:
+      - api                
+    restart: unless-stopped

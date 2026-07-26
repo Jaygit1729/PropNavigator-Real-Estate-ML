@@ -1,0 +1,143 @@
+<svg viewBox="0 0 760 1300" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="ttl desc">
+  <title id="ttl">PropNavigator Price Prediction — full architecture reference</title>
+  <desc id="desc">A detailed reference diagram of the Streamlit to FastAPI to model flow, with the Docker packaging boundary and the three why-statements for Streamlit, FastAPI, and Docker.</desc>
+  <style>
+    :root{
+      --ink:#1f2937; --muted:#6b7280; --line:#94a3b8; --box:#ffffff; --code:#f1f5f9; --codeink:#334155;
+      --fe:#2563eb; --fe-bg:#eff6ff; --be:#0d9488; --be-bg:#f0fdfa; --dock:#7c3aed; --dock-bg:#faf5ff;
+      --model:#b45309; --model-bg:#fffbeb;
+    }
+    .h{font:700 13px system-ui,sans-serif; letter-spacing:.06em;}
+    .t{font:700 14px system-ui,sans-serif; fill:var(--ink);}
+    .s{font:400 12px system-ui,sans-serif; fill:var(--muted);}
+    .n{font:700 13px system-ui,sans-serif; fill:#fff;}
+    .lbl{font:600 12px system-ui,sans-serif; fill:var(--ink);}
+    .code{font:400 11.5px ui-monospace,Consolas,monospace; fill:var(--codeink);}
+    .box{fill:var(--box); stroke-width:2; rx:12;}
+    .codebox{fill:var(--code); stroke:none; rx:8;}
+  </style>
+  <defs>
+    <marker id="arw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--line)"/>
+    </marker>
+  </defs>
+
+  <!-- ============ 1. USER ============ -->
+  <circle cx="380" cy="34" r="20" fill="none" stroke="var(--ink)" stroke-width="2"/>
+  <circle cx="380" cy="28" r="6" fill="var(--ink)"/>
+  <path d="M368 40 Q380 32 392 40" stroke="var(--ink)" stroke-width="2" fill="none"/>
+  <text x="380" y="70" text-anchor="middle" class="lbl">User opens PropNavigator, goes to Price Prediction</text>
+
+  <line x1="380" y1="80" x2="380" y2="108" stroke="var(--line)" stroke-width="2.5" marker-end="url(#arw)"/>
+
+  <!-- ============ 2. STREAMLIT (frontend) ============ -->
+  <text x="40" y="128" class="h" fill="var(--fe)">STREAMLIT — frontend / UI only</text>
+  <rect x="40" y="140" width="680" height="96" rx="12" class="box" stroke="var(--fe)"/>
+  <circle cx="78" cy="176" r="15" fill="var(--fe)"/><text x="78" y="181" text-anchor="middle" class="n">1</text>
+  <text x="108" y="170" class="t">Form collects 5 inputs, nothing else</text>
+  <text x="108" y="190" class="s">property_type · sector · area · bedRoom · bathroom  →  user clicks "Estimate Price"</text>
+  <text x="108" y="208" class="s">No model logic lives here — Streamlit does NOT load best_model.joblib</text>
+  <text x="108" y="224" class="s">runs on: localhost:8501</text>
+
+  <line x1="380" y1="236" x2="380" y2="264" stroke="var(--line)" stroke-width="2.5" marker-end="url(#arw)"/>
+  <text x="392" y="255" class="lbl">HTTP POST /predict  (plain text message, one program to another)</text>
+
+  <!-- JSON request box -->
+  <rect x="60" y="270" width="360" height="72" rx="8" class="codebox"/>
+  <text x="72" y="288" class="s">Request body (JSON):</text>
+  <text x="72" y="306" class="code">{ "property_type": "Flat",</text>
+  <text x="88" y="322" class="code">"sector": "sector 49", "area": 1500,</text>
+  <text x="88" y="338" class="code">"bedRoom": 3, "bathroom": 2 }</text>
+
+  <line x1="380" y1="342" x2="380" y2="372" stroke="var(--line)" stroke-width="2.5" marker-end="url(#arw)"/>
+
+  <!-- ============ 3. DOCKER container boundary ============ -->
+  <rect x="24" y="380" width="712" height="592" rx="16" fill="var(--dock-bg)" stroke="var(--dock)" stroke-width="2" stroke-dasharray="7 6"/>
+  <text x="44" y="408" class="h" fill="var(--dock)">DOCKER CONTAINER — packages everything below into one portable box</text>
+  <text x="44" y="432" class="h" fill="var(--be)">FASTAPI — backend / all ML logic lives here, and only here</text>
+  <text x="656" y="408" class="s">runs on:</text>
+  <text x="656" y="424" class="s">localhost:8000</text>
+
+  <!-- Step 2: validate -->
+  <rect x="56" y="444" width="656" height="70" rx="12" class="box" stroke="var(--be)"/>
+  <circle cx="94" cy="479" r="15" fill="var(--be)"/><text x="94" y="484" text-anchor="middle" class="n">2</text>
+  <text x="124" y="470" class="t">Validate the request (Pydantic schema)</text>
+  <text x="124" y="490" class="s">area must be 100-27000, bedRoom 1-10, property_type one of 3 allowed values...</text>
+  <text x="124" y="506" class="s">bad input → sent back immediately as an error (HTTP 422), never reaches the model</text>
+
+  <line x1="380" y1="514" x2="380" y2="540" stroke="var(--line)" stroke-width="2.5" marker-end="url(#arw)"/>
+
+  <!-- Step 3: build 24 features -->
+  <rect x="56" y="548" width="656" height="118" rx="12" class="box" stroke="var(--be)"/>
+  <circle cx="94" cy="583" r="15" fill="var(--be)"/><text x="94" y="588" text-anchor="middle" class="n">3</text>
+  <text x="124" y="574" class="t">Build the full 24-feature row the model needs</text>
+  <text x="124" y="595" class="s">user gave 5 → the other 19 are looked up, not guessed:</text>
+  <text x="124" y="613" class="s">&#8226; sector "sector 49" &#8594; 4 landmark distances  (sector_reference.csv)</text>
+  <text x="124" y="629" class="s">&#8226; property_type "Flat" &#8594; total_floor, balcony defaults  (type_reference.csv)</text>
+  <text x="124" y="645" class="s">&#8226; a few weak features filled with fixed constants (facing="unknown", etc.)</text>
+  <text x="124" y="661" class="s">result: one ordered row of exactly 24 numbers, matching training column order</text>
+
+  <line x1="380" y1="666" x2="380" y2="694" stroke="var(--line)" stroke-width="2.5" marker-end="url(#arw)"/>
+
+  <!-- Step 4: model -->
+  <text x="44" y="716" class="h" fill="var(--model)">THE MODEL — loaded once, kept in memory, never per-request</text>
+  <rect x="56" y="726" width="656" height="86" rx="12" class="box" stroke="var(--model)"/>
+  <circle cx="94" cy="761" r="15" fill="var(--model)"/><text x="94" y="766" text-anchor="middle" class="n">4</text>
+  <text x="124" y="754" class="t">best_model.joblib  (trained LightGBM pipeline)</text>
+  <text x="124" y="774" class="s">pipeline.predict(24 features)  →  a log-price number</text>
+  <text x="124" y="792" class="s">converted back to real price + a 90% confidence range (₹1.97 – ₹3.18 Cr)</text>
+
+  <line x1="380" y1="812" x2="380" y2="840" stroke="var(--line)" stroke-width="2.5" marker-end="url(#arw)"/>
+
+  <!-- Step 5: response -->
+  <rect x="56" y="848" width="656" height="60" rx="12" class="box" stroke="var(--be)"/>
+  <circle cx="94" cy="878" r="15" fill="var(--be)"/><text x="94" y="883" text-anchor="middle" class="n">5</text>
+  <text x="124" y="872" class="t">FastAPI wraps the result and replies</text>
+  <text x="124" y="891" class="s">sends it back over the SAME connection, as another plain text message</text>
+
+  <!-- JSON response box -->
+  <rect x="120" y="920" width="440" height="42" rx="8" class="codebox"/>
+  <text x="132" y="938" class="s">Response body (JSON):</text>
+  <text x="132" y="954" class="code">{ "predicted_price_cr": 2.43, "lower_bound_cr": 1.97, "upper_bound_cr": 3.18 }</text>
+
+  <!-- what's packed in docker, small footer inside boundary -->
+  <text x="44" y="948" class="h" fill="var(--dock)">Docker box also contains:</text>
+  <text x="44" y="966" class="s">Python 3.11 · fastapi/uvicorn · scikit-learn · lightgbm · pandas/numpy — exact tested versions</text>
+
+  <rect x="24" y="380" width="712" height="592" rx="16" fill="none" stroke="var(--dock)" stroke-width="2" stroke-dasharray="7 6"/>
+
+  <!-- arrow leaving docker back up to streamlit -->
+  <line x1="380" y1="972" x2="380" y2="1000" stroke="var(--line)" stroke-width="2.5" marker-end="url(#arw)"/>
+  <text x="392" y="990" class="lbl">HTTP Response  ←  back across the network</text>
+
+  <!-- ============ 6. STREAMLIT shows result ============ -->
+  <text x="40" y="1020" class="h" fill="var(--fe)">STREAMLIT — displays the result</text>
+  <rect x="40" y="1032" width="680" height="56" rx="12" class="box" stroke="var(--fe)"/>
+  <circle cx="78" cy="1060" r="15" fill="var(--fe)"/><text x="78" y="1065" text-anchor="middle" class="n">6</text>
+  <text x="108" y="1066" class="t">"Estimated Price: ₹2.43 Cr  ·  Range: ₹1.97 – ₹3.18 Cr"</text>
+
+  <line x1="380" y1="1088" x2="380" y2="1112" stroke="var(--line)" stroke-width="2.5" marker-end="url(#arw)"/>
+  <text x="380" y="1130" text-anchor="middle" class="lbl">User sees the answer on screen</text>
+
+  <!-- ============ WHY panel ============ -->
+  <line x1="24" y1="1148" x2="736" y2="1148" stroke="var(--line)" stroke-width="1"/>
+  <text x="380" y="1172" text-anchor="middle" class="h" fill="var(--ink)">THE THREE "WHY" ANSWERS TO REMEMBER</text>
+
+  <rect x="24" y="1184" width="228" height="96" rx="10" class="box" stroke="var(--fe)"/>
+  <text x="40" y="1206" class="lbl" fill="var(--fe)">Why Streamlit?</text>
+  <text x="40" y="1226" class="s">So a user can enter</text>
+  <text x="40" y="1242" class="s">details and see a price</text>
+  <text x="40" y="1258" class="s">without writing code.</text>
+
+  <rect x="266" y="1184" width="228" height="96" rx="10" class="box" stroke="var(--be)"/>
+  <text x="282" y="1206" class="lbl" fill="var(--be)">Why FastAPI?</text>
+  <text x="282" y="1226" class="s">One place for all ML</text>
+  <text x="282" y="1242" class="s">logic, reusable by any</text>
+  <text x="282" y="1258" class="s">future client, not just this page.</text>
+
+  <rect x="508" y="1184" width="228" height="96" rx="10" class="box" stroke="var(--dock)"/>
+  <text x="524" y="1206" class="lbl" fill="var(--dock)">Why Docker?</text>
+  <text x="524" y="1226" class="s">Packages the backend so</text>
+  <text x="524" y="1242" class="s">it runs the same on any</text>
+  <text x="524" y="1258" class="s">machine or cloud server.</text>
+</svg>

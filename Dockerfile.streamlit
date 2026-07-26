@@ -1,0 +1,38 @@
+# Serving image for the PropNavigator Streamlit frontend
+
+FROM python:3.11-slim
+
+# LightGBM (loaded directly by the Insight module) needs the OpenMP runtime.
+
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install deps first (they change rarely) so a code edit doesn't reinstall everything.
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# App code.
+
+COPY Home.py .
+COPY pages/ ./pages/
+COPY .streamlit/ ./.streamlit/
+COPY src/__init__.py ./src/__init__.py
+COPY src/monitoring/ ./src/monitoring/
+
+# Data each page reads.
+
+COPY data/analytics_module/ ./data/analytics_module/
+COPY data/insight_module/ ./data/insight_module/
+COPY data/price_prediction/ ./data/price_prediction/
+COPY data/recommender/ ./data/recommender/
+COPY data/fs/feature_selected_properties.csv ./data/fs/feature_selected_properties.csv
+
+# The model — Insight loads it directly for its SHAP explainer.
+
+COPY artifacts/best_model.joblib ./artifacts/best_model.joblib
+
+EXPOSE 8501
+CMD ["streamlit", "run", "Home.py", "--server.port=8501", "--server.address=0.0.0.0"]
