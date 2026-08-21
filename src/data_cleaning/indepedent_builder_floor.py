@@ -7,8 +7,8 @@ from src.logger_utils import setup_logger
 
 logger = setup_logger(__name__, "logs/independent_builder_floor_cleaning.log")
 
-# Columns that together identify the same flat (Option A). Rows identical across all of
-# these are the same flat reposted by different agents, and are dropped after cleaning.
+# Columns that together identify the same builder floor. Rows identical across all of
+# these are the same builder floor reposted by different agents, and are dropped after cleaning.
 
 DEDUP_KEY = ['property_name', 'society', 'price_in_cr',
              'areaWithType', 'floorNum', 'facing', 'overlooking']
@@ -51,7 +51,7 @@ def apply_column_cleaning(df: pd.DataFrame):
                                                 else float(str(value).replace('Lac', '').strip()) / 100
                                             )
                                         ),
-                                        2
+                                        4
                                     )
                                 )
             .assign(price_per_sqft = lambda df_: (df_['price_per_sqft'].str
@@ -132,5 +132,5 @@ def clean_builder_data(file_path: str):
         return df
 
     except Exception as e:
-        logger.error(f"Error cleaning Independent House data '{file_path}': {e}")
+        logger.error(f"Error cleaning Independent Builder Floor data '{file_path}': {e}")
         return None

@@ -8,7 +8,7 @@ from src.logger_utils import setup_logger
 logger = setup_logger(__name__, "logs/flat_cleaning.log")
 
 
-# Columns that together identify the same flat (Option A). Rows identical across all of
+# Columns that together identify the same flat. Rows identical across all of
 # these are the same flat reposted by different agents, and are dropped after cleaning.
 
 DEDUP_KEY = ['property_name', 'society', 'price_in_cr',

@@ -11,16 +11,34 @@ logger.info("Logging set up successfully for Pre-Processing Module.")
 
 DIST_COLS = ['dist_to_cyber_city', 'dist_to_golf_road', 'dist_to_airport', 'dist_to_manesar']
 
-# Per-type sane area range (sqft). Flats/floors are single units; houses sit on plots.
 
 AREA_MIN = 180
 AREA_CAP = {'Flat': 16000, 'Independent Builder Floor': 10000, 'Independent House': 30000}
 
-# implied price-per-sqft (price / area) must stay in a sane band
-PPSF_MIN, PPSF_MAX = 1500, 250000
+
+# Implied price-per-sqft (price / area) must stay in a sane band. Both bounds are anchored
+# on something verifiable in this market rather than being round guesses.
+#
+# FLOOR 3,500 — the cheapest sector in the data (sector 1) has a median of ~7,150/sqft, and
+# Sohna, the cheapest township, ~8,770. A genuine listing does not trade below half its own
+# locality's typical rate. The rows under this floor also share a tell: builder floors
+# recorded at 9,000-9,900 sqft, i.e. a whole building rather than one floor, which drags
+# ppsf down artificially. The previous floor of 1,500 was ~10% of the market median and only
+# caught errors wrong by an order of magnitude — it let a DLF Phase 1 floor through at 1,511.
+#
+# CEILING 150,000 — DLF Camellias, the most expensive verifiable building in Gurgaon, tops
+# out at 142,105/sqft. Above that is not a real price. The previous ceiling of 250,000 never
+# fired: nothing between 142k and 250k survived the other rules, so it was dead code.
+PPSF_MIN, PPSF_MAX = 3500, 150000
 
 # a bedroom needs ~150 sqft even in cramped layouts
+
 MIN_AREA_PER_BEDROOM = 150
+
+# Above this a residential listing is a guest house or paying-guest accommodation, not a
+# family home. Nothing else in the pipeline constrains bedroom count, so a 30-bedroom
+# "independent house" sitting at exactly 150 sqft/bedroom used to slide past every rule.
+MAX_BEDROOMS = 12
 
 
 DROP_COLS = [
@@ -83,23 +101,6 @@ def fill_balcony_nulls(df):
     return df
 
 
-# NOTE — distance nulls are deliberately NOT imputed (187 rows, ~0.5%).
-#
-# This step used to be `df[col].fillna(df[col].median())`. That median was computed
-# over the WHOLE dataset, including rows that later become the test set — a textbook
-# leak: test statistics influenced training inputs.
-#
-# Rather than move the median into the model pipeline, we drop the imputation
-# entirely. XGBoost, LightGBM and CatBoost all handle NaN natively: they learn which
-# side of a split missing values belong on. That is strictly more informative than a
-# median, which asserts "averagely far from everything" about a property whose
-# coordinates we could not resolve.
-#
-# Trade-off: this couples preprocessing to models that tolerate NaN. All three
-# candidates are tree ensembles, so it holds — but a linear model would need
-# imputation reinstated, fitted on the training split only.
-
-
 def clean_facing(df):
     
     """'not available' / missing facing -> explicit 'unknown' category."""
@@ -117,22 +118,6 @@ def clean_furnishing(df):
     df['furnishing'] = df['furnishing'].fillna('unknown').replace(
         {'not available': 'unknown', 'na': 'unknown', '': 'unknown'})
     logger.info("furnishing cleaned ('not available' -> 'unknown').")
-    return df
-
-
-# NOTE — 'Undefined' age_possession_category is deliberately LEFT AS IS (150 rows, ~0.4%).
-#
-# This step used to be a 3-pass mode imputation: fill 'Undefined' with the most common
-# value in the same sector+type, then the same sector, then the same property type.
-# Every one of those modes was computed over the WHOLE dataset, so test rows shaped the
-# values written into training rows — a leak.
-#
-# 'Undefined' is now kept as its own category, which is exactly how this pipeline
-# already treats unknown `facing` and `furnishing` ('unknown'). "We don't know" is real
-# information; the OrdinalEncoder gives it a code and the model decides what it's worth.
-# Zero leakage, no guessing, and it removes the slowest step in preprocessing (three
-# row-wise .apply() passes over ~39k rows).
-    logger.info("Applied 3-pass mode-based imputation for age_possession_category.")
     return df
 
 
@@ -179,6 +164,19 @@ def remove_area_bedroom_outliers(df, min_ratio: int = MIN_AREA_PER_BEDROOM):
     before = len(df)
     df = df[(df['area'] / df['bedRoom']) >= min_ratio]
     logger.info(f"Area-per-bedroom outliers removed: {before - len(df)} rows.")
+    return df.reset_index(drop=True)
+
+
+def remove_bedroom_outliers(df, max_bedrooms: int = MAX_BEDROOMS):
+    """Univariate: a residence with more than max_bedrooms is not a family home.
+
+    The area-per-bedroom rule alone does not catch these — a 30-bedroom "independent
+    house" at 4,500 sqft sits at exactly 150 sqft/bedroom and slides straight past it.
+    """
+    before = len(df)
+    df = df[df['bedRoom'] <= max_bedrooms]
+    logger.info(f"Bedroom-count outliers removed: {before - len(df)} rows "
+                f"(> {max_bedrooms} bedrooms).")
     return df.reset_index(drop=True)
 
 
@@ -232,7 +230,8 @@ def preprocessing(df: pd.DataFrame):
             .pipe(clean_facing)
             .pipe(clean_furnishing)
             .pipe(cap_rare_societies)
-            .pipe(remove_area_outliers)            # univariate
+            .pipe(remove_area_outliers)            # univariate: area vs property type
+            .pipe(remove_bedroom_outliers)         # univariate: bedroom count
             .pipe(remove_price_area_outliers)      # bivariate: price vs area
             .pipe(remove_area_bedroom_outliers)    # bivariate: area vs bedrooms
             .pipe(categorize_floornum)

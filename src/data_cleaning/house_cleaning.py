@@ -7,8 +7,8 @@ from src.logger_utils import setup_logger
 
 logger = setup_logger(__name__, "logs/house_cleaning.log")
 
-# Columns that together identify the same flat (Option A). Rows identical across all of
-# these are the same flat reposted by different agents, and are dropped after cleaning.
+# Columns that together identify the same house. Rows identical across all of
+# these are the same house reposted by different agents, and are dropped after cleaning.
 
 DEDUP_KEY = ['property_name', 'society', 'price_in_cr',
              'areaWithType', 'floorNum', 'facing', 'overlooking']
@@ -35,7 +35,6 @@ def apply_column_cleaning(df: pd.DataFrame):
                                 'price': 'price_in_cr',
                                 'area': 'price_per_sqft'})
 
-        # drop the leftover raw price/sqft column (houses-only); keep price_per_sqft
         .drop(columns=['pricePerSqft'], errors='ignore')
 
         .assign(
@@ -52,7 +51,7 @@ def apply_column_cleaning(df: pd.DataFrame):
         .loc[lambda df_: (
         df_['price_in_cr'].notna() &
         (df_['price_in_cr'] != 'Price on Request') &
-        (~df_['price_in_cr'].str.contains('-', na=False))   # drop range listings (multi-unit projects)
+        (~df_['price_in_cr'].str.contains('-', na=False))   
                     )]
 
         .assign(
@@ -134,7 +133,7 @@ def clean_house_data(file_path: str):
             return None
         logger.info(f"Column cleaning dropped {before - len(df)} rows — {before} -> {len(df)}.")
 
-       # Deduplication — drop the same builder floor reposted by different agents
+       # Deduplication — drop the same house reposted by different agents
         before = len(df)
         df= df.drop_duplicates(subset=DEDUP_KEY, keep='first').reset_index(drop=True)
         logger.info(f"Deduplication dropped {before - len(df)} rows — {before} -> {len(df)}.")

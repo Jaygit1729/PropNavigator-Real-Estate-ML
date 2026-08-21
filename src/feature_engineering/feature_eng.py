@@ -4,7 +4,6 @@ import re
 import ast
 import pandas as pd
 import numpy as np
-from collections import Counter
 from src.logger_utils import setup_logger
 
 
@@ -165,7 +164,7 @@ def _process_area(df: pd.DataFrame):
     """
 
     # Extract numeric area and area type from the listing text.
-    #
+    
     # Example:
     # "1450 sqft Builtup Area"
     #   -> area = 1450
@@ -192,10 +191,8 @@ def _process_area(df: pd.DataFrame):
 
     carpet_area = pd.to_numeric(df['carpetArea'], errors='coerce')
 
-    valid = area.between(100, 50000) & carpet_area.between(100, 50000)
-
-    super_rows = valid & (area_type == 'super')
-    builtup_rows = valid & (area_type == 'builtup')
+    super_rows = area_type == 'super'
+    builtup_rows = area_type == 'builtup'
 
     carpet_to_super = (
         carpet_area[super_rows] / area[super_rows]
@@ -343,11 +340,7 @@ def _process_parking(df: pd.DataFrame):
     return df
 
 
-AMENITY_MIN_FREQ = 20
-
-# Individual binary flags — one per amenity that has a clear, independent price impact.
-# Each key becomes a column (1 = property has this amenity, 0 = does not).
-# Keyword matching is case-insensitive substring search against valid amenities only.
+# Individual binary flags 
 
 AMENITY_FLAGS = {
     'has_ac':           'centrally air conditioned',
