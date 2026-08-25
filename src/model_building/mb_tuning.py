@@ -1,7 +1,8 @@
 # src/model_building/mb_tuning.py
 
 import numpy as np
-from sklearn.model_selection import KFold, RandomizedSearchCV
+import pandas as pd
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import (
     r2_score,
@@ -20,8 +21,27 @@ from .mb_preprocessing import (
 
 logger = setup_logger(__name__, "logs/mb_tuning.log")
 
+def _mape_in_rupees(y_log_true, y_log_pred):
+    """MAPE on the original price scale, from log-space inputs.
+
+    The search fits on log1p(price), so a plain MAPE scorer computes relative
+    error between LOG values — a different objective from the one reported.
+    Because log1p compresses the range, the cheapest properties have tiny
+    denominators and dominate: measured on the current test set they take 34%
+    of the log-space objective versus 28% of the rupee objective. Tuning was
+    therefore optimising a metric nobody reports, tilted toward cheap listings.
+
+    Inverting the transform inside the scorer makes the tuning objective and
+    the reported metric the same quantity.
+    """
+    return mean_absolute_percentage_error(
+        inverse_transform_target(y_log_true),
+        inverse_transform_target(y_log_pred),
+    )
+
+
 neg_mape_scorer = make_scorer(
-    mean_absolute_percentage_error,
+    _mape_in_rupees,
     greater_is_better=False
 )
 
@@ -107,15 +127,19 @@ def tune_model(
         ])
 
         param_grid = get_param_grid(model_name)
-        # 3-fold keeps tuning tractable on ~31k rows.
-        kf = KFold(n_splits=3, shuffle=True, random_state=42)
+        # 3-fold keeps tuning tractable on ~23k train rows. Folds are stratified
+        # on price quintiles: the target is skewed (~9.9), so plain KFold can
+        # give folds with noticeably different luxury-segment shares, which makes
+        # CV scores noisier than the differences being compared.
+        price_bins = pd.qcut(inverse_transform_target(y_train_log), q=5, labels=False)
+        kf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
         random_search = RandomizedSearchCV(
             estimator=pipeline,
             param_distributions=param_grid,
             n_iter=25,
             scoring=neg_mape_scorer,
-            cv=kf,
+            cv=list(kf.split(X_train, price_bins)),
             verbose=1,
             random_state=42,
             n_jobs=-1

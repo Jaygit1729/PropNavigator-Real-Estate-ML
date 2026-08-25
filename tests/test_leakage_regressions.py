@@ -94,3 +94,52 @@ def test_undefined_age_category_is_preserved(raw_pp_df):
     assert (raw_pp_df["age_possession_category"] == "Undefined").sum() > 0, (
         "'Undefined' age_possession_category is gone — has mode imputation returned?"
     )
+
+
+# --- Bug 4: the save gate compared TEST scores across runs --------------------
+
+def test_save_gate_requires_a_validation_score():
+    """Persistence must refuse to gate on anything but validation.
+
+    Gating on test MAPE means that across repeated runs the artifact keeps
+    whichever model happened to score best on test — the reported number becomes
+    a maximum over runs rather than a held-out estimate. Each individual run
+    still looks correct, which is what makes it easy to miss.
+    """
+    from src.model_building.mb_persistence import save_model
+
+    with pytest.raises(ValueError, match="val_mape_percent"):
+        save_model(
+            model_pipeline=object(),
+            model_name="dummy",
+            metric=10.0,
+            filepath="artifacts/_gate_probe.joblib",
+        )
+
+
+# --- Bug 5: the tuning objective was not the reported metric ------------------
+
+def test_cv_scorer_measures_error_in_rupees_not_log_space():
+    """The search fits on log1p(price); a naive MAPE scorer would score logs.
+
+    Relative error between log values is a different objective — log1p
+    compresses the range, so cheap listings get tiny denominators and dominate.
+    The scorer must invert the transform so tuning optimises what gets reported.
+    """
+    from sklearn.metrics import mean_absolute_percentage_error
+
+    from src.model_building.mb_tuning import _mape_in_rupees
+
+    y_true_rupees = np.array([1.0, 10.0, 100.0])
+    y_log_true = np.log1p(y_true_rupees)
+    y_log_pred = np.log1p(y_true_rupees * 1.10)      # uniformly 10% over
+
+    # A uniform 10% overprediction is 10% error, whatever the price level.
+    assert _mape_in_rupees(y_log_true, y_log_pred) == pytest.approx(0.10, abs=1e-9)
+
+    # Scoring the logs directly does not give 10% — that is the bug this guards.
+    log_space = mean_absolute_percentage_error(y_log_true, y_log_pred)
+    assert log_space < 0.06, (
+        "log-space MAPE happens to match rupee MAPE here; the test cannot "
+        "distinguish the two objectives and needs rewriting"
+    )

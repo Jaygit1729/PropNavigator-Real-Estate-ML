@@ -201,6 +201,7 @@ def run_model_building(fs_df: pd.DataFrame):
             model_pipeline=best_pipeline,
             model_name=best_model_name,
             metric=round(best_test_mape, 2),
+            val_mape_percent=best_val_mape,
             filepath="artifacts/best_model.joblib",
             residual_quantiles=residual_quantiles
         )

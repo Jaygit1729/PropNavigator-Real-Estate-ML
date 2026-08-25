@@ -34,32 +34,61 @@ def _log_experiment(model_name, metric, filepath, status, **extra):
 
 def save_model(model_pipeline, model_name, metric, filepath, **kwargs):
     """
-    Saves the trained model pipeline only if it has the best MAPE.
+    Saves the trained model pipeline only if it beats the incumbent.
+
+    The gate compares VALIDATION MAPE, not test. Gating on test would mean that
+    across repeated runs we keep whichever model happened to score best on the
+    test set — which makes the reported test number the maximum over runs rather
+    than an honest held-out estimate. That is the same bug as selecting the model
+    family on test, just spread over time instead of within a single run, and it
+    is invisible because each individual run looks correct.
+
+    `metric` is the test MAPE and is still recorded in the artifact and the
+    experiment log; it just no longer decides anything.
+
     Also logs every experiment run (saved or not) for auditability.
     """
     try:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
+        val_metric = kwargs.get("val_mape_percent")
+        if val_metric is None:
+            raise ValueError(
+                "save_model requires val_mape_percent — the save gate compares "
+                "validation scores so that test stays a reporting-only set."
+            )
+
         if os.path.exists(filepath):
             existing_artifact = joblib.load(filepath)
-            best_mape = existing_artifact.get("test_mape_percent", float("inf"))
+            best_mape = existing_artifact.get("val_mape_percent")
+            if best_mape is None:
+                # Artifact predates the validation gate. Its test-based score is
+                # not comparable, so treat the incumbent as unbeaten only if we
+                # cannot judge — safer to keep a working model than to clobber it.
+                logger.warning(
+                    "Incumbent artifact has no val_mape_percent (saved under the "
+                    "old test-based gate). Keeping it; rerun training to replace."
+                )
+                _log_experiment(model_name, metric, filepath, "skipped_no_val_baseline")
+                return
 
-            if metric >= best_mape:
+            if val_metric >= best_mape:
                 logger.info(
-                    f"Model '{model_name}' not saved. "
-                    f"Existing model has better MAPE ({best_mape:.2f}%)."
+                    f"Model '{model_name}' not saved. Existing model has better "
+                    f"validation MAPE ({best_mape:.2f}% vs {val_metric:.2f}%)."
                 )
                 _log_experiment(model_name, metric, filepath, "skipped_worse")
                 return
 
             logger.info(
-                f"New model '{model_name}' improved MAPE "
-                f"from {best_mape:.2f}% to {metric:.2f}%."
+                f"New model '{model_name}' improved validation MAPE "
+                f"from {best_mape:.2f}% to {val_metric:.2f}%."
             )
 
         artifact = {
             "model_name": model_name,
             "test_mape_percent": round(metric, 2),
+            "val_mape_percent": round(val_metric, 2),
             "pipeline": model_pipeline,
             "residual_quantiles": kwargs.get("residual_quantiles", None),
             "trained_at": datetime.now().isoformat(timespec="seconds"),
@@ -75,7 +104,8 @@ def save_model(model_pipeline, model_name, metric, filepath, **kwargs):
         # Overwrite latest
         joblib.dump(artifact, filepath)
 
-        _log_experiment(model_name, metric, filepath, "saved_best")
+        _log_experiment(model_name, metric, filepath, "saved_best",
+                        val_mape_percent=round(val_metric, 2))
 
         logger.info(
             f"Best model '{model_name}' saved at: {filepath} "
