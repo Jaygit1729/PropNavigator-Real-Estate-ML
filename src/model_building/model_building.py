@@ -9,10 +9,6 @@ Model building, end to end, in the order it actually happens:
     5. evaluate       the winner is scored on test once, and that is the number
     6. persist        saved only if it beats the incumbent on validation
 
-This was four modules. The steps above are a single linear story, and splitting
-them across files meant reading the story required jumping between them. Saving
-and loading stayed separate, in persistence.py, because that is file I/O with
-its own lifecycle rather than part of the sequence.
 """
 
 import warnings
@@ -57,10 +53,6 @@ def get_feature_lists(X):
     """
     Derives numerical and categorical feature lists dynamically
     from the dataframe passed in.
-
-    This avoids hardcoding column names — if feature selection
-    changes which columns are selected, the preprocessor adapts
-    automatically without any manual updates.
 
     """
     numerical_features = X.select_dtypes(

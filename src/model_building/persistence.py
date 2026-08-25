@@ -62,15 +62,18 @@ def save_model(model_pipeline, model_name, metric, filepath, **kwargs):
             existing_artifact = joblib.load(filepath)
             best_mape = existing_artifact.get("val_mape_percent")
             if best_mape is None:
-                # Artifact predates the validation gate. Its test-based score is
-                # not comparable, so treat the incumbent as unbeaten only if we
-                # cannot judge — safer to keep a working model than to clobber it.
+                # Artifact predates the validation gate, so it carries no score
+                # this gate can compare against. Refusing to save would deadlock:
+                # the incumbent can never gain a validation score, so no future
+                # run would ever replace it. Save instead — the incoming model
+                # comes from the corrected code path, and the previous artifact
+                # survives as its own timestamped version.
                 logger.warning(
                     "Incumbent artifact has no val_mape_percent (saved under the "
-                    "old test-based gate). Keeping it; rerun training to replace."
+                    "old test-based gate); nothing to compare. Replacing it — the "
+                    "previous file remains as a timestamped version."
                 )
-                _log_experiment(model_name, metric, filepath, "skipped_no_val_baseline")
-                return
+                best_mape = float("inf")
 
             if val_metric >= best_mape:
                 logger.info(
