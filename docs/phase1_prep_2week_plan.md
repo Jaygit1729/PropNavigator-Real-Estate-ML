@@ -259,7 +259,7 @@ biased toward high-cardinality features. **High cardinality** — 660 societies 
 - CatBoost: ordered boosting + native categorical handling.
 - Key hyperparameters and what each does.
 
-**Your code.** `mb_main.py` (candidates), `mb_tuning.py` (search spaces).
+**Your code.** `model_building.py` (candidates), `model_building.py` (search spaces).
 
 **Q&A.**
 1. Explain boosting to a non-technical person, then to an ML engineer.

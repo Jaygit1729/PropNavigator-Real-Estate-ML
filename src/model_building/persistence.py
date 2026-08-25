@@ -1,4 +1,4 @@
-# src/model_building/mb_persistence.py
+# src/model_building/persistence.py
 
 import joblib
 import os
@@ -6,7 +6,7 @@ import csv
 from datetime import datetime
 from src.logger_utils import setup_logger
 
-logger = setup_logger(__name__, "logs/mb_persistence.log")
+logger = setup_logger(__name__, "logs/persistence.log")
 
 EXPERIMENT_LOG = "artifacts/experiment_log.csv"
 

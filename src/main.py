@@ -9,7 +9,7 @@ from src.data_cleaning.merge_data import merge_cleaned_datasets
 from src.feature_engineering.feature_eng import feature_engineering
 from src.data_preprocessing.pre_process_data import preprocessing as data_preprocessing
 from src.feature_selection.feature_selection import select_features
-from src.model_building.mb_main import run_model_building
+from src.model_building.model_building import run_model_building
 
 
 logger = setup_logger(__name__,"logs/main_pipeline.log")

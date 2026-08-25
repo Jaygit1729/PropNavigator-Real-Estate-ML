@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from src.feature_selection.feature_selection import SELECTED_FEATURES, select_features
-from src.model_building.mb_main import create_train_val_test_split
+from src.model_building.model_building import create_train_val_test_split
 
 
 # --- Bug 1: model family was selected on the test set -------------------------
@@ -106,7 +106,7 @@ def test_save_gate_requires_a_validation_score():
     a maximum over runs rather than a held-out estimate. Each individual run
     still looks correct, which is what makes it easy to miss.
     """
-    from src.model_building.mb_persistence import save_model
+    from src.model_building.persistence import save_model
 
     with pytest.raises(ValueError, match="val_mape_percent"):
         save_model(
@@ -128,7 +128,7 @@ def test_cv_scorer_measures_error_in_rupees_not_log_space():
     """
     from sklearn.metrics import mean_absolute_percentage_error
 
-    from src.model_building.mb_tuning import _mape_in_rupees
+    from src.model_building.model_building import _mape_in_rupees
 
     y_true_rupees = np.array([1.0, 10.0, 100.0])
     y_log_true = np.log1p(y_true_rupees)

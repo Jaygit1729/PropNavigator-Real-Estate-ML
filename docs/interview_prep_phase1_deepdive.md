@@ -69,7 +69,7 @@ fields; Layer 2 visits each property page for bedrooms, bathrooms, facing, furni
 floor. Batch processing, retry logic, cooldown intervals. Three property types scraped separately
 (flats, independent houses, builder floors). **~39,800 listings scraped**, Gurgaon.
 
-**✅ Resolved (2026-07-19):** an earlier draft flagged a contradiction — `mb_tuning.py` said
+**✅ Resolved (2026-07-19):** an earlier draft flagged a contradiction — `model_building.py` said
 "~31k rows" while the README said ~6,000. The **code was right**: 39,621 rows after cleaning,
 39,066 after outliers, 38,239 after de-duplication, of which 22,943 are training rows (the "~31k"
 comment predated the validation split, when train was 80%). The README's "6,000" was stale from an
@@ -274,7 +274,7 @@ say it confidently, then be honest about the global-statistic cases above.
 
 ## Stage 6 — Model Building
 
-**The pipeline** (`mb_main.py` → `mb_tuning.py` → `mb_persistence.py`):
+**The pipeline** (`model_building.py` → `model_building.py` → `persistence.py`):
 
 1. **Split** — **60/20/20 train / validation / test**, `random_state=42`, **stratified on
    `pd.qcut(y, 5)` price quintiles** (`create_train_val_test_split`). Sizes: 22,943 / 7,648 / 7,648.
@@ -364,7 +364,7 @@ Two follow-ups worth having ready:
   selection to validation. It didn't.
 
 **Q. Train MAPE vs test MAPE — are you overfitting?**
-Both are logged (`mb_tuning.py`). **Know the actual gap.** If train is far below test, name the
+Both are logged (`model_building.py`). **Know the actual gap.** If train is far below test, name the
 regularization levers you already have: `reg_alpha`, `reg_lambda`, `min_child_samples`,
 `subsample`, `colsample_bytree`, capped `max_depth`.
 
@@ -444,7 +444,7 @@ wanted symmetry: SMAPE, or MAE on log price.
    Note also: **area alone (33.3%) beats sector alone (47.8%)**, which independently corroborates
    SHAP putting `area` as the dominant driver.
 
-Sources: `logs/mb_tuning.log`, `logs/pre_processing.log`, `artifacts/experiment_log.csv`,
+Sources: `logs/model_building.log`, `logs/pre_processing.log`, `artifacts/experiment_log.csv`,
 MLflow experiment `propnavigator-model-building` on DagsHub.
 
 ---

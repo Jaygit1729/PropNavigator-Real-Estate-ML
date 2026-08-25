@@ -121,7 +121,7 @@ The **Model Registry** is separate — the "official releases shelf": a named mo
 (`propnavigator-price-model`) with numbered versions (v1, v2, …), each linked back to the run that
 made it.
 
-**Your example (inside `mb_main.py`):**
+**Your example (inside `model_building.py`):**
 ```python
 with mlflow.start_run(run_name="LightGBM"):
     mlflow.log_param("n_features", 24)
