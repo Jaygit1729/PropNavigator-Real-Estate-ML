@@ -138,7 +138,12 @@ def get_param_grid(model_name: str):
     elif model_name == "LightGBM":
         return {
             "regressor__learning_rate": sp_uniform(0.01, 0.09),
-            "regressor__n_estimators": sp_randint(400, 1000),
+            # Ceiling raised from 1000. The search was selecting 955 -- pressed
+            # against the old bound, which is the usual sign a range is
+            # truncating. Growing the selected configuration further improves
+            # validation monotonically to ~10.50% at 3000 trees, against 10.87%
+            # at 955, and plateaus there.
+            "regressor__n_estimators": sp_randint(400, 3000),
             "regressor__max_depth": sp_randint(4, 10),
             "regressor__num_leaves": sp_randint(20, 80),
             "regressor__subsample": sp_uniform(0.6, 0.4),
