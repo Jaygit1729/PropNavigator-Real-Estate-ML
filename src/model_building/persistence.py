@@ -35,18 +35,6 @@ def _log_experiment(model_name, metric, filepath, status, **extra):
 def save_model(model_pipeline, model_name, metric, filepath, **kwargs):
     """
     Saves the trained model pipeline only if it beats the incumbent.
-
-    The gate compares VALIDATION MAPE, not test. Gating on test would mean that
-    across repeated runs we keep whichever model happened to score best on the
-    test set — which makes the reported test number the maximum over runs rather
-    than an honest held-out estimate. That is the same bug as selecting the model
-    family on test, just spread over time instead of within a single run, and it
-    is invisible because each individual run looks correct.
-
-    `metric` is the test MAPE and is still recorded in the artifact and the
-    experiment log; it just no longer decides anything.
-
-    Also logs every experiment run (saved or not) for auditability.
     """
     try:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
@@ -62,12 +50,6 @@ def save_model(model_pipeline, model_name, metric, filepath, **kwargs):
             existing_artifact = joblib.load(filepath)
             best_mape = existing_artifact.get("val_mape_percent")
             if best_mape is None:
-                # Artifact predates the validation gate, so it carries no score
-                # this gate can compare against. Refusing to save would deadlock:
-                # the incumbent can never gain a validation score, so no future
-                # run would ever replace it. Save instead — the incoming model
-                # comes from the corrected code path, and the previous artifact
-                # survives as its own timestamped version.
                 logger.warning(
                     "Incumbent artifact has no val_mape_percent (saved under the "
                     "old test-based gate); nothing to compare. Replacing it — the "

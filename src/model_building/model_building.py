@@ -47,7 +47,7 @@ load_dotenv()
 logger = setup_logger(__name__, "logs/model_building.log")
 
 
-# ---------------------------------------------------------------- encoding ---
+# encoding 
 
 def get_feature_lists(X):
     """
@@ -69,10 +69,6 @@ def get_feature_lists(X):
 def get_tree_preprocessor(numerical_features: list, categorical_features: list):
     """
     Preprocessor for the tree-based models (XGBoost, LightGBM, CatBoost):
-    - Ordinal encodes all categorical features
-    - Passes numerical features through unchanged (no scaling needed
-      since tree models are scale-invariant)
-    - unknown_value=-1 handles unseen categories at inference time
     """
     tree_preprocessor = ColumnTransformer(
         transformers=[
@@ -94,8 +90,6 @@ def get_tree_preprocessor(numerical_features: list, categorical_features: list):
 def transform_target(y):
     """
     Applies log1p transformation to the target variable.
-    log1p compresses the price distribution, reducing the influence
-    of expensive outliers on model training.
     """
     return np.log1p(y)
 
@@ -103,26 +97,16 @@ def transform_target(y):
 def inverse_transform_target(y_log):
     """
     Reverses log1p transformation using expm1.
-    Applied after prediction to get back to original price scale
-    before computing evaluation metrics.
     """
     return np.expm1(y_log)
 
 
-# ------------------------------------------------------------------ tuning ---
+#  tuning 
 
 def _mape_in_rupees(y_log_true, y_log_pred):
+
     """MAPE on the original price scale, from log-space inputs.
 
-    The search fits on log1p(price), so a plain MAPE scorer computes relative
-    error between LOG values — a different objective from the one reported.
-    Because log1p compresses the range, the cheapest properties have tiny
-    denominators and dominate: measured on the current test set they take 34%
-    of the log-space objective versus 28% of the rupee objective. Tuning was
-    therefore optimising a metric nobody reports, tilted toward cheap listings.
-
-    Inverting the transform inside the scorer makes the tuning objective and
-    the reported metric the same quantity.
     """
     return mean_absolute_percentage_error(
         inverse_transform_target(y_log_true),
@@ -139,7 +123,6 @@ neg_mape_scorer = make_scorer(
 def get_param_grid(model_name: str):
     """
     Returns the hyperparameter search space for the given model.
-    Ranges are based on empirical tuning for real estate price prediction.
     """
     if model_name == "XGBoost":
         return {
@@ -159,6 +142,11 @@ def get_param_grid(model_name: str):
             "regressor__max_depth": sp_randint(4, 10),
             "regressor__num_leaves": sp_randint(20, 80),
             "regressor__subsample": sp_uniform(0.6, 0.4),
+            # LightGBM ignores `subsample` unless `subsample_freq` > 0, which
+            # defaults to 0. Without this the parameter above is a no-op and the
+            # search wastes a dimension: subsample=0.5, 0.97 and 1.0 all gave
+            # byte-identical results. 0 keeps "no bagging" as a candidate.
+            "regressor__subsample_freq": [0, 1, 5],
             "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
             "regressor__reg_alpha": [0, 0.1, 0.5, 1, 5],
             "regressor__reg_lambda": [0, 1, 5, 10],
@@ -188,20 +176,8 @@ def tune_model(
 ):
     """
     Runs RandomizedSearchCV for the given model and evaluates the best
-    estimator on train and VALIDATION sets (metrics on original price scale).
+    estimator on train and VALIDATION sets 
 
-    Deliberately never sees the test set: the caller picks the winning model
-    family from these validation scores, and only the winner is scored on test.
-
-    Returns a dict:
-        {
-            "pipeline":    fitted best pipeline,
-            "best_params": winning hyperparameters,
-            "val_mape":    validation MAPE (%),
-            "val_r2":      validation R2,
-            "train_mape":  train MAPE (%),
-        }
-    or None if tuning fails.
     """
     try:
         logger.info(f"Tuning started for {model_name}.")
@@ -217,10 +193,6 @@ def tune_model(
         ])
 
         param_grid = get_param_grid(model_name)
-        # 3-fold keeps tuning tractable on ~23k train rows. Folds are stratified
-        # on price quintiles: the target is skewed (~9.9), so plain KFold can
-        # give folds with noticeably different luxury-segment shares, which makes
-        # CV scores noisier than the differences being compared.
         price_bins = pd.qcut(inverse_transform_target(y_train_log), q=5, labels=False)
         kf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
@@ -283,7 +255,6 @@ def tune_model(
         return None
 
 
-# ------------------------------------------------------------- orchestration ---
 
 TARGET_COL = "price_in_cr"
 EXPERIMENT_NAME = "propnavigator-model-building"
@@ -292,16 +263,8 @@ REGISTERED_MODEL_NAME = "propnavigator-price-model"
 
 def create_train_val_test_split(df: pd.DataFrame):
     """
-    Single source of truth for the 60/20/20 train / validation / test split.
+    Creates a 60/20/20 train / validation / test split.
 
-    Why three splits and not two: every time data is used to MAKE A CHOICE it
-    can no longer give an honest score for what was chosen. Hyperparameters are
-    chosen by CV on train; the winning model FAMILY is chosen on validation;
-    test is touched exactly once, at the end, to report. Selecting the family on
-    test — as this pipeline previously did — makes the headline metric
-    optimistic, because whichever model got luckiest on those rows wins.
-
-    Stratified on price quintiles so all three splits span the price range.
     """
     X = df.drop(columns=[TARGET_COL])
     y = df[TARGET_COL]
@@ -320,7 +283,7 @@ def create_train_val_test_split(df: pd.DataFrame):
     X_train, X_val, y_train_log, y_val_log = train_test_split(
         X_temp, y_temp_log,
         stratify=bins_temp,
-        test_size=0.25,          # 0.25 of the remaining 80% = 20% overall
+        test_size=0.25,          
         random_state=42
     )
     return X_train, X_val, X_test, y_train_log, y_val_log, y_test_log
@@ -337,10 +300,6 @@ def run_model_building(fs_df: pd.DataFrame):
         6. Log every tuned model to MLflow; register the winner
         7. Save best model via MAPE-gated persistence
 
-    Note: RandomForest and stacking were intentionally dropped. On this
-    tabular data the gradient-boosting trio wins, RandomForest was the
-    slowest to tune and the weakest, and a single model is simpler to
-    serve and to explain with SHAP than a stacked ensemble.
     """
     try:
         logger.info("Model building pipeline started.")
@@ -353,8 +312,8 @@ def run_model_building(fs_df: pd.DataFrame):
             f"Test shape: {X_test.shape}"
         )
 
-        # Feature lists derived dynamically from training data, so changes
-        # in feature selection never break model building.
+        # Feature lists derived dynamically
+        
         numerical_features, categorical_features = get_feature_lists(X_train)
         logger.info(
             f"Numerical features ({len(numerical_features)}): "
@@ -406,8 +365,7 @@ def run_model_building(fs_df: pd.DataFrame):
             logger.error("All models failed tuning. No model saved.")
             return {}
 
-        # Pick the winner on VALIDATION — test stays untouched so the number
-        # we report is not inflated by having been used to choose.
+        # Pick the winner on VALIDATION
         best_model_name = min(
             results, key=lambda n: results[n]["val_mape"]
         )
@@ -419,8 +377,6 @@ def run_model_building(fs_df: pd.DataFrame):
             f"({best_val_mape}% val MAPE)"
         )
 
-        # Now — and only now — score the winner on the held-out test set.
-        # This single number is the honest, reportable performance.
         y_test_pred = inverse_transform_target(best_pipeline.predict(X_test))
         y_test_true = inverse_transform_target(y_test_log)
         best_test_mape = round(
@@ -433,7 +389,7 @@ def run_model_building(fs_df: pd.DataFrame):
         )
 
         # Residual quantiles for prediction intervals, calibrated on VALIDATION
-        # so the test set is used for reporting only.
+        
         y_pred = inverse_transform_target(best_pipeline.predict(X_val))
         y_true = inverse_transform_target(y_val_log)
         pct_errors = (y_true - y_pred) / y_pred
@@ -449,13 +405,7 @@ def run_model_building(fs_df: pd.DataFrame):
             f"{residual_quantiles['q95']:.3f}]"
         )
 
-        # Persist the model FIRST. Training costs minutes; MLflow logging talks to
-        # a remote server and can fail for reasons that have nothing to do with the
-        # model (network, auth, console encoding). A logging failure must never
-        # destroy a trained model, so the local artifact is written before any of it.
-        #
-        # Artifact contract is unchanged (dict with pipeline / model_name /
-        # test_mape_percent / residual_quantiles) — the Streamlit pages depend on it.
+       
         save_model(
             model_pipeline=best_pipeline,
             model_name=best_model_name,
@@ -465,9 +415,7 @@ def run_model_building(fs_df: pd.DataFrame):
             residual_quantiles=residual_quantiles
         )
 
-        # MLflow: one run per tuned model; the winner's model is logged and
-        # registered. Wrapped so a tracking-server problem degrades to a warning
-        # rather than failing the whole pipeline.
+        # MLflow: one run per tuned model; the winner's model is logged and registered. 
         try:
             mlflow.set_experiment(EXPERIMENT_NAME)
             for name, info in results.items():
@@ -476,8 +424,6 @@ def run_model_building(fs_df: pd.DataFrame):
                     mlflow.log_param("split", "60/20/20 train/val/test")
                     mlflow.log_param("selected_on", "validation")
                     mlflow.log_param("random_state", 42)
-                    # Log the feature count so every run self-describes in the UI
-                    # (24 = society dropped, 25 = society included).
                     mlflow.log_param("n_features", X_train.shape[1])
                     mlflow.log_params(info["best_params"])
                     mlflow.log_metric("val_mape", info["val_mape"])
@@ -485,8 +431,6 @@ def run_model_building(fs_df: pd.DataFrame):
                     mlflow.log_metric("train_mape", info["train_mape"])
                     if name == best_model_name:
                         mlflow.log_param("is_best", True)
-                        # Only the winner gets a test score — logged here so the
-                        # UI shows exactly one honest, held-out number.
                         mlflow.log_metric("test_mape", best_test_mape)
                         mlflow.log_metric("test_r2", best_test_r2)
                         mlflow.sklearn.log_model(
