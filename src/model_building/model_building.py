@@ -122,25 +122,11 @@ PARAMETER_SPACES = {
 
     "LightGBM": {
         "regressor__learning_rate": sp_uniform(0.01, 0.09),
-
-        # Ceiling raised from 1000. The search was selecting 955 -- pressed
-        # against the old bound, which is the usual sign that a range is
-        # truncating rather than that an optimum was found. Growing the
-        # selected configuration further improves validation monotonically
-        # to ~10.50% at 3000 trees, against 10.87% at 955, then plateaus.
         "regressor__n_estimators": sp_randint(400, 3000),
-
         "regressor__max_depth": sp_randint(4, 10),
         "regressor__num_leaves": sp_randint(20, 80),
         "regressor__subsample": sp_uniform(0.6, 0.4),
-
-        # LightGBM ignores the subsample fraction above unless subsample_freq
-        # is greater than 0, and it defaults to 0. Without this line the
-        # parameter is a no-op: values of 0.5, 0.97 and 1.0 all produced
-        # byte-identical scores. Keeping 0 in the list leaves "no bagging"
-        # available as a candidate the search can still choose.
         "regressor__subsample_freq": [0, 1, 5],
-
         "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
         "regressor__reg_alpha": [0, 0.1, 0.5, 1, 5],
         "regressor__reg_lambda": [0, 1, 5, 10],
@@ -163,15 +149,7 @@ PARAMETER_SPACES = {
 # ---------------------------------------------------------------------
 
 def mape_on_price_scale(y_log_true, y_log_pred):
-    """Calculate MAPE after converting values back to price scale.
-
-    The search fits on log1p(price), so scoring MAPE directly would measure
-    relative error between LOG values -- a different objective from the one
-    reported. log1p compresses the range, so the cheapest listings get tiny
-    denominators and dominate: they take 34% of the log-space objective
-    against 28% of the rupee objective. Inverting here keeps the tuning
-    objective and the reported metric the same quantity.
-    """
+    """Calculate MAPE after converting values back to price scale."""
     y_true = inverse_transform_target(y_log_true)
     y_pred = inverse_transform_target(y_log_pred)
 
@@ -211,13 +189,8 @@ def create_train_val_test_split(df):
     """
     Create a 60/20/20 train/validation/test split.
 
-    Three splits, not two, because two separate decisions get made:
-    hyperparameters are chosen by cross-validation inside train, and the
-    winning model family is chosen on validation. Test informs neither, so
-    the number it produces stays an honest held-out estimate.
-
-    Price quintiles are used only for stratification so that all three
-    datasets have a similar price distribution.
+    Price quintiles are used only for stratification so that
+    all three datasets have a similar price distribution.
     """
     X = df.drop(columns=[TARGET_COL])
     y = df[TARGET_COL]
@@ -276,15 +249,7 @@ def tune_model(
     numerical_features,
     categorical_features,
 ):
-    """Tune one model and evaluate its best version on validation data.
-
-    The search runs on the pipeline rather than the bare model, so the
-    encoder is refitted inside every fold on that fold's training rows
-    only. Fitting it once up front would let it see held-out rows.
-
-    Never touches the test set: the caller picks the winning family from
-    these validation scores, and only the winner is scored on test.
-    """
+    """Tune one model and evaluate its best version on validation data."""
 
     logger.info(f"Tuning started for {model_name}.")
 
@@ -301,9 +266,6 @@ def tune_model(
     )
 
     # Use price quintiles so CV folds have similar price distributions.
-    # The target is skewed (~9.9), so unstratified folds can carry
-    # noticeably different luxury-segment shares, which adds noise to
-    # scores that are being compared at the first decimal place.
     price_bins = pd.qcut(
         inverse_transform_target(y_train_log),
         q=5,
@@ -316,7 +278,7 @@ def tune_model(
         random_state=RANDOM_STATE,
     )
 
-    # Materialize the same folds so every candidate is compared fairly.
+    # Materialize the same folds so every model is compared fairly.
     cv_splits = list(cv.split(X_train, price_bins))
 
     search = RandomizedSearchCV(
@@ -346,7 +308,6 @@ def tune_model(
         y_val_log,
     )
 
-    # best_score_ carries the sign flip from greater_is_better=False.
     cv_mape = round(
         -search.best_score_ * 100,
         2,
@@ -385,8 +346,6 @@ def calculate_residual_quantiles(model, X_val, y_val_log):
     Estimate prediction-error quantiles from validation data.
 
     These are later used to create approximate prediction intervals.
-    Calibrated on validation rather than test, so the test set stays
-    reporting-only.
     """
     y_true = inverse_transform_target(y_val_log)
     y_pred = inverse_transform_target(model.predict(X_val))
@@ -413,11 +372,7 @@ def log_to_mlflow(
     best_test_r2,
     n_features,
 ):
-    """Log model comparison results and register the winner.
-
-    Wrapped so that a tracking-server problem degrades to a warning rather
-    than failing the pipeline. The model is already on disk by this point.
-    """
+    """Log model comparison results and register the winner."""
 
     try:
         mlflow.set_experiment(EXPERIMENT_NAME)
@@ -456,8 +411,7 @@ def log_to_mlflow(
                         True,
                     )
 
-                    # Only the winner gets a test score, so the UI shows
-                    # exactly one honest held-out number.
+                    # Only the winner gets a test score.
                     mlflow.log_metrics(
                         {
                             "test_mape": best_test_mape,
@@ -497,10 +451,6 @@ def run_model_building(fs_df: pd.DataFrame):
     6. Calibrate prediction intervals using validation residuals.
     7. Save the winning model.
     8. Log experiments to MLflow.
-
-    The model is saved before MLflow runs: training costs minutes, while
-    remote logging can fail for reasons unrelated to the model, and a
-    logging failure must never destroy a trained artifact.
     """
 
     try:
