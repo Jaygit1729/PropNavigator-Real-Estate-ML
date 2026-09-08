@@ -5,9 +5,11 @@ They exist so nobody silently reintroduces one — a leak is invisible at runtim
 (everything still "works", the metric just quietly lies).
 """
 
+import joblib
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.dummy import DummyRegressor
 
 from src.feature_selection.feature_selection import SELECTED_FEATURES, select_features
 from src.model_building.model_building import create_train_val_test_split
@@ -96,25 +98,44 @@ def test_undefined_age_category_is_preserved(raw_pp_df):
     )
 
 
-# --- Bug 4: the save gate compared TEST scores across runs --------------------
+# --- Bug 4: model persistence must not consult the test score -----------------
 
-def test_save_gate_requires_a_validation_score():
-    """Persistence must refuse to gate on anything but validation.
+def test_saving_never_compares_test_scores(tmp_path, monkeypatch):
+    """Saving must be unconditional, and must not gate on the test metric.
 
-    Gating on test MAPE means that across repeated runs the artifact keeps
-    whichever model happened to score best on test — the reported number becomes
-    a maximum over runs rather than a held-out estimate. Each individual run
-    still looks correct, which is what makes it easy to miss.
+    A gate that keeps a model only when its TEST score beats the incumbent's
+    turns the reported number into a maximum over runs rather than a held-out
+    estimate — each individual run still looks correct, which is what made the
+    original bug easy to miss. Comparing validation scores across runs was no
+    better: the data, features and split change between runs, so the scores are
+    not comparable, and in practice it preserved whichever model came from the
+    leakiest pipeline. Every save now writes a dated copy, so nothing is lost
+    and no comparison is needed.
     """
-    from src.model_building.persistence import save_model
+    from src.model_building import model_building as mb
 
-    with pytest.raises(ValueError, match="val_mape_percent"):
-        save_model(
-            model_pipeline=object(),
-            model_name="dummy",
-            metric=10.0,
-            filepath="artifacts/_gate_probe.joblib",
-        )
+    monkeypatch.setattr(mb, "EXPERIMENT_LOG", str(tmp_path / "log.csv"))
+    target = tmp_path / "best_model.joblib"
+
+    quantiles = {"q05": -0.2, "q95": 0.2, "q10": -0.1, "q90": 0.1}
+
+    mb.save_model(DummyRegressor(), "first", 10.0, 10.5, quantiles, str(target))
+    assert target.exists()
+
+    # A worse model still saves: versioning, not a gate, is the safety net.
+    mb.save_model(DummyRegressor(), "second", 99.0, 99.0, quantiles, str(target))
+
+    artifact = joblib.load(target)
+    assert artifact["model_name"] == "second", "save was blocked by a comparison"
+
+    # The keys the API and Streamlit pages read must all be present.
+    for key in ("pipeline", "model_name", "val_mape_percent",
+                "test_mape_percent", "residual_quantiles", "trained_at"):
+        assert key in artifact, f"artifact contract lost {key!r}"
+
+    # Both runs left their own dated copy behind.
+    versions = list(tmp_path.glob("best_model_*.joblib"))
+    assert len(versions) == 2, f"expected 2 dated copies, found {len(versions)}"
 
 
 # --- Bug 5: the tuning objective was not the reported metric ------------------

@@ -1,7 +1,11 @@
 # src/model_building/model_building.py
 
+import csv
+import os
 import warnings
+from datetime import datetime
 
+import joblib
 import mlflow
 import mlflow.sklearn
 import numpy as np
@@ -31,7 +35,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
 
 from src.logger_utils import setup_logger
-from .persistence import save_model
 
 
 # ---------------------------------------------------------------------
@@ -46,6 +49,8 @@ logger = setup_logger(__name__, "logs/model_building.log")
 TARGET_COL = "price_in_cr"
 EXPERIMENT_NAME = "propnavigator-model-building"
 REGISTERED_MODEL_NAME = "propnavigator-price-model"
+MODEL_PATH = "artifacts/best_model.joblib"
+EXPERIMENT_LOG = "artifacts/experiment_log.csv"
 
 RANDOM_STATE = 42
 N_ITER = 25
@@ -362,6 +367,77 @@ def calculate_residual_quantiles(model, X_val, y_val_log):
 
 
 # ---------------------------------------------------------------------
+# Persistence
+# ---------------------------------------------------------------------
+
+def save_model(
+    pipeline,
+    model_name,
+    val_mape,
+    test_mape,
+    residual_quantiles,
+    filepath=MODEL_PATH,
+):
+    """Write the winning model plus the metadata the app reads from it."""
+
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+    artifact = {
+        "model_name": model_name,
+        "val_mape_percent": val_mape,
+        "test_mape_percent": test_mape,
+        "pipeline": pipeline,
+        "residual_quantiles": residual_quantiles,
+        "trained_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
+    # Dated copy first, so a previous model is never the only casualty
+    # of a failed write.
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    versioned_path = filepath.replace(".joblib", f"_{timestamp}.joblib")
+
+    # Second-resolution stamps collide if two saves land in the same second.
+    collision = 2
+    while os.path.exists(versioned_path):
+        versioned_path = filepath.replace(
+            ".joblib", f"_{timestamp}_{collision}.joblib"
+        )
+        collision += 1
+
+    joblib.dump(artifact, versioned_path)
+    joblib.dump(artifact, filepath)
+
+    _append_experiment_log(model_name, val_mape, test_mape, filepath)
+
+    logger.info(
+        f"Saved {model_name} to {filepath} "
+        f"(version: {versioned_path}) | "
+        f"Val MAPE: {val_mape}% | Test MAPE: {test_mape}%"
+    )
+
+
+def _append_experiment_log(model_name, val_mape, test_mape, filepath):
+    """Append one row per run. Local fallback for when MLflow is unreachable."""
+
+    os.makedirs(os.path.dirname(EXPERIMENT_LOG), exist_ok=True)
+    is_new = not os.path.exists(EXPERIMENT_LOG)
+
+    row = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "model_name": model_name,
+        "val_mape_percent": val_mape,
+        "test_mape_percent": test_mape,
+        "artifact_path": filepath,
+    }
+
+    with open(EXPERIMENT_LOG, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=row.keys())
+        if is_new:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+# ---------------------------------------------------------------------
 # MLflow
 # ---------------------------------------------------------------------
 
@@ -604,11 +680,10 @@ def run_model_building(fs_df: pd.DataFrame):
         # -------------------------------------------------------------
 
         save_model(
-            model_pipeline=best_pipeline,
+            pipeline=best_pipeline,
             model_name=best_model_name,
-            metric=best_test_mape,
-            val_mape_percent=best_val_mape,
-            filepath="artifacts/best_model.joblib",
+            val_mape=best_val_mape,
+            test_mape=best_test_mape,
             residual_quantiles=residual_quantiles,
         )
 
