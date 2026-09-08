@@ -1,18 +1,6 @@
 # src/model_building/model_building.py
-"""
-Model building, end to end, in the order it actually happens:
-
-    1. split          60/20/20, stratified on price quintiles
-    2. encode         ordinal for categories, numbers passed through
-    3. tune           randomised search, cross-validated inside train only
-    4. pick           best validation score chooses the winning family
-    5. evaluate       the winner is scored on test once, and that is the number
-    6. persist        saved only if it beats the incumbent on validation
-
-"""
 
 import warnings
-
 import numpy as np
 import pandas as pd
 import mlflow
@@ -138,20 +126,10 @@ def get_param_grid(model_name: str):
     elif model_name == "LightGBM":
         return {
             "regressor__learning_rate": sp_uniform(0.01, 0.09),
-            # Ceiling raised from 1000. The search was selecting 955 -- pressed
-            # against the old bound, which is the usual sign a range is
-            # truncating. Growing the selected configuration further improves
-            # validation monotonically to ~10.50% at 3000 trees, against 10.87%
-            # at 955, and plateaus there.
-            "regressor__n_estimators": sp_randint(400, 3000),
+            "regressor__n_estimators": sp_randint(400, 1000),
             "regressor__max_depth": sp_randint(4, 10),
             "regressor__num_leaves": sp_randint(20, 80),
             "regressor__subsample": sp_uniform(0.6, 0.4),
-            # LightGBM ignores `subsample` unless `subsample_freq` > 0, which
-            # defaults to 0. Without this the parameter above is a no-op and the
-            # search wastes a dimension: subsample=0.5, 0.97 and 1.0 all gave
-            # byte-identical results. 0 keeps "no bagging" as a candidate.
-            "regressor__subsample_freq": [0, 1, 5],
             "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
             "regressor__reg_alpha": [0, 0.1, 0.5, 1, 5],
             "regressor__reg_lambda": [0, 1, 5, 10],
@@ -330,6 +308,7 @@ def run_model_building(fs_df: pd.DataFrame):
         )
 
         # Candidate models — all tree-based, all use the tree preprocessor.
+        
         models_to_tune = {
             "XGBoost": XGBRegressor(
                 random_state=42,
