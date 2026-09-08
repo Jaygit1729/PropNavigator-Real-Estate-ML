@@ -117,7 +117,7 @@ with col2:
         "transformation and a stratified 60/20/20 train/validation/test split, tuned via "
         "RandomizedSearchCV. The winning family is chosen on **validation**; the test set is "
         "scored once, at the end, so the reported number isn't inflated by the choice. "
-        "Best model: **LightGBM at 11.57% MAPE (R² 0.92)** on the held-out test set, trained "
+        "Best model: **LightGBM at 10.75% MAPE (R² 0.93)** on the held-out test set, trained "
         "on 24 features — `society` was dropped because it can't be obtained at prediction time."
     )
 
