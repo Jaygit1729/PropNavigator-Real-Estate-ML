@@ -128,14 +128,14 @@ def test_cv_scorer_measures_error_in_rupees_not_log_space():
     """
     from sklearn.metrics import mean_absolute_percentage_error
 
-    from src.model_building.model_building import _mape_in_rupees
+    from src.model_building.model_building import mape_on_price_scale
 
     y_true_rupees = np.array([1.0, 10.0, 100.0])
     y_log_true = np.log1p(y_true_rupees)
     y_log_pred = np.log1p(y_true_rupees * 1.10)      # uniformly 10% over
 
     # A uniform 10% overprediction is 10% error, whatever the price level.
-    assert _mape_in_rupees(y_log_true, y_log_pred) == pytest.approx(0.10, abs=1e-9)
+    assert mape_on_price_scale(y_log_true, y_log_pred) == pytest.approx(0.10, abs=1e-9)
 
     # Scoring the logs directly does not give 10% — that is the bug this guards.
     log_space = mean_absolute_percentage_error(y_log_true, y_log_pred)

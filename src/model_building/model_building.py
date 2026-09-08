@@ -1,19 +1,26 @@
 # src/model_building/model_building.py
 
 import warnings
-import numpy as np
-import pandas as pd
+
 import mlflow
 import mlflow.sklearn
+import numpy as np
+import pandas as pd
 from dotenv import load_dotenv
-from scipy.stats import randint as sp_randint, uniform as sp_uniform
+from scipy.stats import randint as sp_randint
+from scipy.stats import uniform as sp_uniform
+
+from catboost import CatBoostRegressor
+from lightgbm import LGBMRegressor
+from xgboost import XGBRegressor
+
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import (
-    r2_score,
     mean_absolute_error,
-    mean_squared_error,
     mean_absolute_percentage_error,
+    mean_squared_error,
     make_scorer,
+    r2_score,
 )
 from sklearn.model_selection import (
     RandomizedSearchCV,
@@ -22,415 +29,658 @@ from sklearn.model_selection import (
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OrdinalEncoder
-from xgboost import XGBRegressor
-from lightgbm import LGBMRegressor
-from catboost import CatBoostRegressor
 
 from src.logger_utils import setup_logger
 from .persistence import save_model
+
+
+# ---------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------
 
 warnings.filterwarnings("ignore", category=UserWarning)
 load_dotenv()
 
 logger = setup_logger(__name__, "logs/model_building.log")
 
+TARGET_COL = "price_in_cr"
+EXPERIMENT_NAME = "propnavigator-model-building"
+REGISTERED_MODEL_NAME = "propnavigator-price-model"
 
-# encoding 
+RANDOM_STATE = 42
+N_ITER = 25
+N_SPLITS = 3
+
+
+# ---------------------------------------------------------------------
+# Target transformation
+# ---------------------------------------------------------------------
+
+def transform_target(y):
+    """Convert price to log scale for model training."""
+    return np.log1p(y)
+
+
+def inverse_transform_target(y_log):
+    """Convert predictions back to the original price scale."""
+    return np.expm1(y_log)
+
+
+# ---------------------------------------------------------------------
+# Feature preprocessing
+# ---------------------------------------------------------------------
 
 def get_feature_lists(X):
-    """
-    Derives numerical and categorical feature lists dynamically
-    from the dataframe passed in.
-
-    """
+    """Identify numerical and categorical columns."""
     numerical_features = X.select_dtypes(
-        include=['int64', 'float64']
+        include=["int64", "float64"]
     ).columns.tolist()
 
     categorical_features = X.select_dtypes(
-        include=['object', 'category']
+        include=["object", "category"]
     ).columns.tolist()
 
     return numerical_features, categorical_features
 
 
-def get_tree_preprocessor(numerical_features: list, categorical_features: list):
+def create_preprocessor(numerical_features, categorical_features):
     """
-    Preprocessor for the tree-based models (XGBoost, LightGBM, CatBoost):
+    Encode categorical features and pass numerical features through.
+    Unknown categories are handled safely at prediction time.
     """
-    tree_preprocessor = ColumnTransformer(
+    return ColumnTransformer(
         transformers=[
             (
-                "cat",
+                "categorical",
                 OrdinalEncoder(
                     handle_unknown="use_encoded_value",
-                    unknown_value=-1
+                    unknown_value=-1,
                 ),
-                categorical_features
+                categorical_features,
             )
         ],
         remainder="passthrough",
-        verbose_feature_names_out=False
+        verbose_feature_names_out=False,
     )
-    return tree_preprocessor
 
 
-def transform_target(y):
+# ---------------------------------------------------------------------
+# Hyperparameter search
+# ---------------------------------------------------------------------
+
+PARAMETER_SPACES = {
+    "XGBoost": {
+        "regressor__learning_rate": sp_uniform(0.01, 0.05),
+        "regressor__n_estimators": sp_randint(500, 1000),
+        "regressor__max_depth": sp_randint(3, 6),
+        "regressor__subsample": sp_uniform(0.6, 0.4),
+        "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
+        "regressor__reg_alpha": [0.1, 0.5, 1, 5],
+        "regressor__reg_lambda": [1, 5, 10],
+        "regressor__min_child_weight": sp_randint(3, 8),
+    },
+
+    "LightGBM": {
+        "regressor__learning_rate": sp_uniform(0.01, 0.09),
+
+        # Ceiling raised from 1000. The search was selecting 955 -- pressed
+        # against the old bound, which is the usual sign that a range is
+        # truncating rather than that an optimum was found. Growing the
+        # selected configuration further improves validation monotonically
+        # to ~10.50% at 3000 trees, against 10.87% at 955, then plateaus.
+        "regressor__n_estimators": sp_randint(400, 3000),
+
+        "regressor__max_depth": sp_randint(4, 10),
+        "regressor__num_leaves": sp_randint(20, 80),
+        "regressor__subsample": sp_uniform(0.6, 0.4),
+
+        # LightGBM ignores the subsample fraction above unless subsample_freq
+        # is greater than 0, and it defaults to 0. Without this line the
+        # parameter is a no-op: values of 0.5, 0.97 and 1.0 all produced
+        # byte-identical scores. Keeping 0 in the list leaves "no bagging"
+        # available as a candidate the search can still choose.
+        "regressor__subsample_freq": [0, 1, 5],
+
+        "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
+        "regressor__reg_alpha": [0, 0.1, 0.5, 1, 5],
+        "regressor__reg_lambda": [0, 1, 5, 10],
+        "regressor__min_child_samples": sp_randint(5, 30),
+    },
+
+    "CatBoost": {
+        "regressor__learning_rate": sp_uniform(0.01, 0.09),
+        "regressor__iterations": sp_randint(500, 1200),
+        "regressor__depth": sp_randint(4, 8),
+        "regressor__l2_leaf_reg": [1, 3, 5, 7, 10],
+        "regressor__bagging_temperature": sp_uniform(0, 1),
+        "regressor__random_strength": sp_uniform(0, 2),
+    },
+}
+
+
+# ---------------------------------------------------------------------
+# Evaluation
+# ---------------------------------------------------------------------
+
+def mape_on_price_scale(y_log_true, y_log_pred):
+    """Calculate MAPE after converting values back to price scale.
+
+    The search fits on log1p(price), so scoring MAPE directly would measure
+    relative error between LOG values -- a different objective from the one
+    reported. log1p compresses the range, so the cheapest listings get tiny
+    denominators and dominate: they take 34% of the log-space objective
+    against 28% of the rupee objective. Inverting here keeps the tuning
+    objective and the reported metric the same quantity.
     """
-    Applies log1p transformation to the target variable.
-    """
-    return np.log1p(y)
+    y_true = inverse_transform_target(y_log_true)
+    y_pred = inverse_transform_target(y_log_pred)
 
-
-def inverse_transform_target(y_log):
-    """
-    Reverses log1p transformation using expm1.
-    """
-    return np.expm1(y_log)
-
-
-#  tuning 
-
-def _mape_in_rupees(y_log_true, y_log_pred):
-
-    """MAPE on the original price scale, from log-space inputs.
-
-    """
-    return mean_absolute_percentage_error(
-        inverse_transform_target(y_log_true),
-        inverse_transform_target(y_log_pred),
-    )
+    return mean_absolute_percentage_error(y_true, y_pred)
 
 
 neg_mape_scorer = make_scorer(
-    _mape_in_rupees,
-    greater_is_better=False
+    mape_on_price_scale,
+    greater_is_better=False,
 )
 
 
-def get_param_grid(model_name: str):
-    """
-    Returns the hyperparameter search space for the given model.
-    """
-    if model_name == "XGBoost":
-        return {
-            "regressor__learning_rate": sp_uniform(0.01, 0.05),
-            "regressor__n_estimators": sp_randint(500, 1000),
-            "regressor__max_depth": sp_randint(3, 6),
-            "regressor__subsample": sp_uniform(0.6, 0.4),
-            "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
-            "regressor__reg_alpha": [0.1, 0.5, 1, 5],
-            "regressor__reg_lambda": [1, 5, 10],
-            "regressor__min_child_weight": sp_randint(3, 8)
-        }
-    elif model_name == "LightGBM":
-        return {
-            "regressor__learning_rate": sp_uniform(0.01, 0.09),
-            "regressor__n_estimators": sp_randint(400, 1000),
-            "regressor__max_depth": sp_randint(4, 10),
-            "regressor__num_leaves": sp_randint(20, 80),
-            "regressor__subsample": sp_uniform(0.6, 0.4),
-            "regressor__colsample_bytree": sp_uniform(0.6, 0.4),
-            "regressor__reg_alpha": [0, 0.1, 0.5, 1, 5],
-            "regressor__reg_lambda": [0, 1, 5, 10],
-            "regressor__min_child_samples": sp_randint(5, 30)
-        }
-    elif model_name == "CatBoost":
-        return {
-            "regressor__learning_rate": sp_uniform(0.01, 0.09),
-            "regressor__iterations": sp_randint(500, 1200),
-            "regressor__depth": sp_randint(4, 8),
-            "regressor__l2_leaf_reg": [1, 3, 5, 7, 10],
-            "regressor__bagging_temperature": sp_uniform(0, 1),
-            "regressor__random_strength": sp_uniform(0, 2),
-        }
-    return {}
+def calculate_metrics(model, X, y_log):
+    """Calculate regression metrics on the original price scale."""
+    y_true = inverse_transform_target(y_log)
+    y_pred = inverse_transform_target(model.predict(X))
 
+    return {
+        "r2": round(r2_score(y_true, y_pred), 4),
+        "mae": round(mean_absolute_error(y_true, y_pred), 4),
+        "rmse": round(
+            np.sqrt(mean_squared_error(y_true, y_pred)),
+            4,
+        ),
+        "mape": round(
+            mean_absolute_percentage_error(y_true, y_pred) * 100,
+            2,
+        ),
+    }
+
+
+# ---------------------------------------------------------------------
+# Data splitting
+# ---------------------------------------------------------------------
+
+def create_train_val_test_split(df):
+    """
+    Create a 60/20/20 train/validation/test split.
+
+    Three splits, not two, because two separate decisions get made:
+    hyperparameters are chosen by cross-validation inside train, and the
+    winning model family is chosen on validation. Test informs neither, so
+    the number it produces stays an honest held-out estimate.
+
+    Price quintiles are used only for stratification so that all three
+    datasets have a similar price distribution.
+    """
+    X = df.drop(columns=[TARGET_COL])
+    y = df[TARGET_COL]
+
+    y_log = transform_target(y)
+
+    # Five price groups used only for stratification.
+    price_bins = pd.qcut(
+        y,
+        q=5,
+        labels=False,
+    )
+
+    # Step 1: reserve 20% as untouched test data.
+    X_temp, X_test, y_temp_log, y_test_log, bins_temp, _ = (
+        train_test_split(
+            X,
+            y_log,
+            price_bins,
+            test_size=0.20,
+            stratify=price_bins,
+            random_state=RANDOM_STATE,
+        )
+    )
+
+    # Step 2: split remaining 80% into 60% train + 20% validation.
+    X_train, X_val, y_train_log, y_val_log = train_test_split(
+        X_temp,
+        y_temp_log,
+        test_size=0.25,
+        stratify=bins_temp,
+        random_state=RANDOM_STATE,
+    )
+
+    return (
+        X_train,
+        X_val,
+        X_test,
+        y_train_log,
+        y_val_log,
+        y_test_log,
+    )
+
+
+# ---------------------------------------------------------------------
+# Model tuning
+# ---------------------------------------------------------------------
 
 def tune_model(
-    model_name: str,
+    model_name,
     model,
     X_train,
     y_train_log,
     X_val,
     y_val_log,
-    numerical_features: list,
-    categorical_features: list
+    numerical_features,
+    categorical_features,
 ):
+    """Tune one model and evaluate its best version on validation data.
+
+    The search runs on the pipeline rather than the bare model, so the
+    encoder is refitted inside every fold on that fold's training rows
+    only. Fitting it once up front would let it see held-out rows.
+
+    Never touches the test set: the caller picks the winning family from
+    these validation scores, and only the winner is scored on test.
     """
-    Runs RandomizedSearchCV for the given model and evaluates the best
-    estimator on train and VALIDATION sets 
 
-    """
-    try:
-        logger.info(f"Tuning started for {model_name}.")
+    logger.info(f"Tuning started for {model_name}.")
 
-        # All candidate models are tree-based → same tree preprocessor.
-        preprocessor = get_tree_preprocessor(
-            numerical_features, categorical_features
-        )
+    preprocessor = create_preprocessor(
+        numerical_features,
+        categorical_features,
+    )
 
-        pipeline = Pipeline([
+    pipeline = Pipeline(
+        [
             ("preprocessor", preprocessor),
-            ("regressor", model)
-        ])
+            ("regressor", model),
+        ]
+    )
 
-        param_grid = get_param_grid(model_name)
-        price_bins = pd.qcut(inverse_transform_target(y_train_log), q=5, labels=False)
-        kf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+    # Use price quintiles so CV folds have similar price distributions.
+    # The target is skewed (~9.9), so unstratified folds can carry
+    # noticeably different luxury-segment shares, which adds noise to
+    # scores that are being compared at the first decimal place.
+    price_bins = pd.qcut(
+        inverse_transform_target(y_train_log),
+        q=5,
+        labels=False,
+    )
 
-        random_search = RandomizedSearchCV(
-            estimator=pipeline,
-            param_distributions=param_grid,
-            n_iter=25,
-            scoring=neg_mape_scorer,
-            cv=list(kf.split(X_train, price_bins)),
-            verbose=1,
-            random_state=42,
-            n_jobs=-1
-        )
+    cv = StratifiedKFold(
+        n_splits=N_SPLITS,
+        shuffle=True,
+        random_state=RANDOM_STATE,
+    )
 
-        random_search.fit(X_train, y_train_log)
-        best_model = random_search.best_estimator_
+    # Materialize the same folds so every candidate is compared fairly.
+    cv_splits = list(cv.split(X_train, price_bins))
 
-        # Train metrics on original price scale
-        y_train_pred = inverse_transform_target(best_model.predict(X_train))
-        y_train_true = inverse_transform_target(y_train_log)
-        train_r2 = r2_score(y_train_true, y_train_pred)
-        train_mape = mean_absolute_percentage_error(
-            y_train_true, y_train_pred
-        ) * 100
+    search = RandomizedSearchCV(
+        estimator=pipeline,
+        param_distributions=PARAMETER_SPACES[model_name],
+        n_iter=N_ITER,
+        scoring=neg_mape_scorer,
+        cv=cv_splits,
+        random_state=RANDOM_STATE,
+        n_jobs=-1,
+        verbose=1,
+    )
 
-        # Validation metrics on original price scale (used to pick the winner)
-        y_pred = inverse_transform_target(best_model.predict(X_val))
-        y_true = inverse_transform_target(y_val_log)
-        val_r2 = r2_score(y_true, y_pred)
-        val_mae = mean_absolute_error(y_true, y_pred)
-        val_rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-        val_mape = mean_absolute_percentage_error(y_true, y_pred) * 100
+    search.fit(X_train, y_train_log)
 
-        logger.info(
-            f"{model_name} best CV MAPE: "
-            f"{round(-random_search.best_score_ * 100, 2)}%"
-        )
-        logger.info(f"{model_name} best params: {random_search.best_params_}")
-        logger.info(
-            f"{model_name} Train — R2: {round(train_r2, 4)} | "
-            f"MAPE: {round(train_mape, 2)}%"
-        )
-        logger.info(
-            f"{model_name} Validation — R2: {round(val_r2, 4)} | "
-            f"MAE: {round(val_mae, 4)} | "
-            f"RMSE: {round(val_rmse, 4)} | "
-            f"MAPE: {round(val_mape, 2)}%"
-        )
+    best_model = search.best_estimator_
 
-        return {
-            "pipeline": best_model,
-            "best_params": random_search.best_params_,
-            "val_mape": round(val_mape, 2),
-            "val_r2": round(val_r2, 4),
-            "train_mape": round(train_mape, 2),
-        }
+    train_metrics = calculate_metrics(
+        best_model,
+        X_train,
+        y_train_log,
+    )
+
+    val_metrics = calculate_metrics(
+        best_model,
+        X_val,
+        y_val_log,
+    )
+
+    # best_score_ carries the sign flip from greater_is_better=False.
+    cv_mape = round(
+        -search.best_score_ * 100,
+        2,
+    )
+
+    logger.info(
+        f"{model_name} | "
+        f"CV MAPE: {cv_mape}% | "
+        f"Train MAPE: {train_metrics['mape']}% | "
+        f"Val MAPE: {val_metrics['mape']}%"
+    )
+
+    logger.info(
+        f"{model_name} best parameters: "
+        f"{search.best_params_}"
+    )
+
+    return {
+        "pipeline": best_model,
+        "best_params": search.best_params_,
+        "cv_mape": cv_mape,
+        "train_mape": train_metrics["mape"],
+        "val_mape": val_metrics["mape"],
+        "val_r2": val_metrics["r2"],
+        "val_mae": val_metrics["mae"],
+        "val_rmse": val_metrics["rmse"],
+    }
+
+
+# ---------------------------------------------------------------------
+# Prediction interval calibration
+# ---------------------------------------------------------------------
+
+def calculate_residual_quantiles(model, X_val, y_val_log):
+    """
+    Estimate prediction-error quantiles from validation data.
+
+    These are later used to create approximate prediction intervals.
+    Calibrated on validation rather than test, so the test set stays
+    reporting-only.
+    """
+    y_true = inverse_transform_target(y_val_log)
+    y_pred = inverse_transform_target(model.predict(X_val))
+
+    # Percentage error relative to predicted price.
+    pct_errors = (y_true - y_pred) / y_pred
+
+    return {
+        "q05": float(np.percentile(pct_errors, 5)),
+        "q95": float(np.percentile(pct_errors, 95)),
+        "q10": float(np.percentile(pct_errors, 10)),
+        "q90": float(np.percentile(pct_errors, 90)),
+    }
+
+
+# ---------------------------------------------------------------------
+# MLflow
+# ---------------------------------------------------------------------
+
+def log_to_mlflow(
+    results,
+    best_model_name,
+    best_test_mape,
+    best_test_r2,
+    n_features,
+):
+    """Log model comparison results and register the winner.
+
+    Wrapped so that a tracking-server problem degrades to a warning rather
+    than failing the pipeline. The model is already on disk by this point.
+    """
+
+    try:
+        mlflow.set_experiment(EXPERIMENT_NAME)
+
+        for model_name, result in results.items():
+
+            with mlflow.start_run(run_name=model_name):
+
+                mlflow.log_params(
+                    {
+                        "model_type": model_name,
+                        "split": "60/20/20 train/val/test",
+                        "selected_on": "validation",
+                        "random_state": RANDOM_STATE,
+                        "n_features": n_features,
+                    }
+                )
+
+                mlflow.log_params(result["best_params"])
+
+                mlflow.log_metrics(
+                    {
+                        "cv_mape": result["cv_mape"],
+                        "train_mape": result["train_mape"],
+                        "val_mape": result["val_mape"],
+                        "val_r2": result["val_r2"],
+                        "val_mae": result["val_mae"],
+                        "val_rmse": result["val_rmse"],
+                    }
+                )
+
+                if model_name == best_model_name:
+
+                    mlflow.log_param(
+                        "is_best",
+                        True,
+                    )
+
+                    # Only the winner gets a test score, so the UI shows
+                    # exactly one honest held-out number.
+                    mlflow.log_metrics(
+                        {
+                            "test_mape": best_test_mape,
+                            "test_r2": best_test_r2,
+                        }
+                    )
+
+                    mlflow.sklearn.log_model(
+                        result["pipeline"],
+                        name="model",
+                        serialization_format="cloudpickle",
+                        registered_model_name=REGISTERED_MODEL_NAME,
+                    )
+
+        logger.info("MLflow logging complete.")
 
     except Exception as e:
-        logger.error(f"Tuning failed for {model_name}: {e}", exc_info=True)
-        return None
+        logger.warning(
+            f"MLflow logging failed: {e}. "
+            "Model is already saved locally."
+        )
 
 
-
-TARGET_COL = "price_in_cr"
-EXPERIMENT_NAME = "propnavigator-model-building"
-REGISTERED_MODEL_NAME = "propnavigator-price-model"
-
-
-def create_train_val_test_split(df: pd.DataFrame):
-    """
-    Creates a 60/20/20 train / validation / test split.
-
-    """
-    X = df.drop(columns=[TARGET_COL])
-    y = df[TARGET_COL]
-    y_log = transform_target(y)
-    price_bins = pd.qcut(y, q=5, labels=False)
-
-    # First carve off the test set (20%) and leave it alone until the very end.
-    X_temp, X_test, y_temp_log, y_test_log, bins_temp, _ = train_test_split(
-        X, y_log, price_bins,
-        stratify=price_bins,
-        test_size=0.2,
-        random_state=42
-    )
-
-    # Then split the remainder into train (60% of all) and validation (20% of all).
-    X_train, X_val, y_train_log, y_val_log = train_test_split(
-        X_temp, y_temp_log,
-        stratify=bins_temp,
-        test_size=0.25,          
-        random_state=42
-    )
-    return X_train, X_val, X_test, y_train_log, y_val_log, y_test_log
-
+# ---------------------------------------------------------------------
+# Main model-building pipeline
+# ---------------------------------------------------------------------
 
 def run_model_building(fs_df: pd.DataFrame):
     """
-    Model building pipeline:
-        1. Split data 60/20/20 into train / validation / test
-        2. Derive feature lists from training data
-        3. Tune XGBoost, LightGBM, CatBoost (RandomizedSearchCV on train)
-        4. Pick the single best model by VALIDATION MAPE
-        5. Score the winner on the untouched test set — the reported number
-        6. Log every tuned model to MLflow; register the winner
-        7. Save best model via MAPE-gated persistence
+    Complete model-building workflow:
 
+    1. Split data into train/validation/test.
+    2. Identify feature types.
+    3. Tune XGBoost, LightGBM and CatBoost.
+    4. Select the winner using validation MAPE.
+    5. Evaluate the winner once on untouched test data.
+    6. Calibrate prediction intervals using validation residuals.
+    7. Save the winning model.
+    8. Log experiments to MLflow.
+
+    The model is saved before MLflow runs: training costs minutes, while
+    remote logging can fail for reasons unrelated to the model, and a
+    logging failure must never destroy a trained artifact.
     """
+
     try:
         logger.info("Model building pipeline started.")
         logger.info(f"Input shape: {fs_df.shape}")
 
-        (X_train, X_val, X_test,
-         y_train_log, y_val_log, y_test_log) = create_train_val_test_split(fs_df)
+        # -------------------------------------------------------------
+        # 1. Split data
+        # -------------------------------------------------------------
+
+        (
+            X_train,
+            X_val,
+            X_test,
+            y_train_log,
+            y_val_log,
+            y_test_log,
+        ) = create_train_val_test_split(fs_df)
+
         logger.info(
-            f"Train shape: {X_train.shape} | Val shape: {X_val.shape} | "
-            f"Test shape: {X_test.shape}"
+            f"Train: {X_train.shape} | "
+            f"Validation: {X_val.shape} | "
+            f"Test: {X_test.shape}"
         )
 
-        # Feature lists derived dynamically
-        
-        numerical_features, categorical_features = get_feature_lists(X_train)
-        logger.info(
-            f"Numerical features ({len(numerical_features)}): "
-            f"{numerical_features}"
-        )
-        logger.info(
-            f"Categorical features ({len(categorical_features)}): "
-            f"{categorical_features}"
+        # -------------------------------------------------------------
+        # 2. Identify feature types
+        # -------------------------------------------------------------
+
+        numerical_features, categorical_features = get_feature_lists(
+            X_train
         )
 
-        # Candidate models — all tree-based, all use the tree preprocessor.
-        
-        models_to_tune = {
+        logger.info(
+            f"Numerical features: {numerical_features}"
+        )
+        logger.info(
+            f"Categorical features: {categorical_features}"
+        )
+
+        # -------------------------------------------------------------
+        # 3. Define candidate models
+        # -------------------------------------------------------------
+
+        models = {
             "XGBoost": XGBRegressor(
-                random_state=42,
+                random_state=RANDOM_STATE,
                 objective="reg:squarederror",
-                tree_method="hist"
+                tree_method="hist",
             ),
+
             "LightGBM": LGBMRegressor(
-                random_state=42,
-                verbose=-1
+                random_state=RANDOM_STATE,
+                verbose=-1,
             ),
+
             "CatBoost": CatBoostRegressor(
-                random_seed=42,
+                random_seed=RANDOM_STATE,
                 verbose=0,
-                allow_writing_files=False
+                allow_writing_files=False,
             ),
         }
 
-        # Tune each model and collect its results.
+        # -------------------------------------------------------------
+        # 4. Tune every candidate model
+        # -------------------------------------------------------------
+
         results = {}
-        for name, model in models_to_tune.items():
-            info = tune_model(
-                model_name=name,
-                model=model,
-                X_train=X_train,
-                y_train_log=y_train_log,
-                X_val=X_val,
-                y_val_log=y_val_log,
-                numerical_features=numerical_features,
-                categorical_features=categorical_features
-            )
-            if info is None:
-                logger.warning(f"Skipping {name} — tuning returned None.")
-                continue
-            results[name] = info
-            logger.info(f"{name} tuned Validation MAPE: {info['val_mape']}%")
+
+        for model_name, model in models.items():
+
+            try:
+                results[model_name] = tune_model(
+                    model_name=model_name,
+                    model=model,
+                    X_train=X_train,
+                    y_train_log=y_train_log,
+                    X_val=X_val,
+                    y_val_log=y_val_log,
+                    numerical_features=numerical_features,
+                    categorical_features=categorical_features,
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"{model_name} tuning failed: {e}",
+                    exc_info=True,
+                )
 
         if not results:
-            logger.error("All models failed tuning. No model saved.")
+            logger.error(
+                "All models failed tuning. No model saved."
+            )
             return {}
 
-        # Pick the winner on VALIDATION
+        # -------------------------------------------------------------
+        # 5. Select winner using validation MAPE
+        # -------------------------------------------------------------
+
         best_model_name = min(
-            results, key=lambda n: results[n]["val_mape"]
-        )
-        best_info = results[best_model_name]
-        best_pipeline = best_info["pipeline"]
-        best_val_mape = best_info["val_mape"]
-        logger.info(
-            f"Best model by validation: {best_model_name} "
-            f"({best_val_mape}% val MAPE)"
+            results,
+            key=lambda name: results[name]["val_mape"],
         )
 
-        y_test_pred = inverse_transform_target(best_pipeline.predict(X_test))
-        y_test_true = inverse_transform_target(y_test_log)
-        best_test_mape = round(
-            mean_absolute_percentage_error(y_test_true, y_test_pred) * 100, 2
-        )
-        best_test_r2 = round(r2_score(y_test_true, y_test_pred), 4)
+        best_result = results[best_model_name]
+        best_pipeline = best_result["pipeline"]
+        best_val_mape = best_result["val_mape"]
+
         logger.info(
-            f"HELD-OUT TEST — {best_model_name}: "
-            f"MAPE {best_test_mape}% | R2 {best_test_r2}"
+            f"Best model: {best_model_name} | "
+            f"Validation MAPE: {best_val_mape}%"
         )
 
-        # Residual quantiles for prediction intervals, calibrated on VALIDATION
-        
-        y_pred = inverse_transform_target(best_pipeline.predict(X_val))
-        y_true = inverse_transform_target(y_val_log)
-        pct_errors = (y_true - y_pred) / y_pred
-        residual_quantiles = {
-            "q05": float(np.percentile(pct_errors, 5)),
-            "q95": float(np.percentile(pct_errors, 95)),
-            "q10": float(np.percentile(pct_errors, 10)),
-            "q90": float(np.percentile(pct_errors, 90)),
-        }
-        logger.info(
-            f"Residual quantiles (90% CI): "
-            f"[{residual_quantiles['q05']:.3f}, "
-            f"{residual_quantiles['q95']:.3f}]"
+        # -------------------------------------------------------------
+        # 6. Evaluate winner on untouched test set
+        # -------------------------------------------------------------
+
+        test_metrics = calculate_metrics(
+            best_pipeline,
+            X_test,
+            y_test_log,
         )
 
-       
+        best_test_mape = test_metrics["mape"]
+        best_test_r2 = test_metrics["r2"]
+
+        logger.info(
+            f"HELD-OUT TEST | "
+            f"{best_model_name} | "
+            f"MAPE: {best_test_mape}% | "
+            f"R2: {best_test_r2}"
+        )
+
+        # -------------------------------------------------------------
+        # 7. Calibrate prediction intervals
+        # -------------------------------------------------------------
+
+        residual_quantiles = calculate_residual_quantiles(
+            best_pipeline,
+            X_val,
+            y_val_log,
+        )
+
+        logger.info(
+            f"Residual quantiles: "
+            f"{residual_quantiles}"
+        )
+
+        # -------------------------------------------------------------
+        # 8. Save winning model
+        # -------------------------------------------------------------
+
         save_model(
             model_pipeline=best_pipeline,
             model_name=best_model_name,
-            metric=round(best_test_mape, 2),
+            metric=best_test_mape,
             val_mape_percent=best_val_mape,
             filepath="artifacts/best_model.joblib",
-            residual_quantiles=residual_quantiles
+            residual_quantiles=residual_quantiles,
         )
 
-        # MLflow: one run per tuned model; the winner's model is logged and registered. 
-        try:
-            mlflow.set_experiment(EXPERIMENT_NAME)
-            for name, info in results.items():
-                with mlflow.start_run(run_name=name):
-                    mlflow.log_param("model_type", name)
-                    mlflow.log_param("split", "60/20/20 train/val/test")
-                    mlflow.log_param("selected_on", "validation")
-                    mlflow.log_param("random_state", 42)
-                    mlflow.log_param("n_features", X_train.shape[1])
-                    mlflow.log_params(info["best_params"])
-                    mlflow.log_metric("val_mape", info["val_mape"])
-                    mlflow.log_metric("val_r2", info["val_r2"])
-                    mlflow.log_metric("train_mape", info["train_mape"])
-                    if name == best_model_name:
-                        mlflow.log_param("is_best", True)
-                        mlflow.log_metric("test_mape", best_test_mape)
-                        mlflow.log_metric("test_r2", best_test_r2)
-                        mlflow.sklearn.log_model(
-                            best_pipeline,
-                            name="model",
-                            serialization_format="cloudpickle",
-                            registered_model_name=REGISTERED_MODEL_NAME
-                        )
-            logger.info("MLflow logging complete.")
-        except Exception as e:
-            logger.warning(
-                f"MLflow logging failed ({e}). The model is already saved locally; "
-                f"continuing."
-            )
+        # -------------------------------------------------------------
+        # 9. Log experiments and register winner
+        # -------------------------------------------------------------
 
-        logger.info("Model building pipeline completed successfully.")
+        log_to_mlflow(
+            results=results,
+            best_model_name=best_model_name,
+            best_test_mape=best_test_mape,
+            best_test_r2=best_test_r2,
+            n_features=X_train.shape[1],
+        )
+
+        logger.info(
+            "Model building pipeline completed successfully."
+        )
+
+        # -------------------------------------------------------------
+        # 10. Return summary
+        # -------------------------------------------------------------
 
         return {
             "best_model_name": best_model_name,
@@ -438,13 +688,14 @@ def run_model_building(fs_df: pd.DataFrame):
             "best_test_mape": best_test_mape,
             "best_test_r2": best_test_r2,
             "all_val_results": {
-                n: i["val_mape"] for n, i in results.items()
+                name: result["val_mape"]
+                for name, result in results.items()
             },
         }
 
     except Exception as e:
         logger.error(
             f"Model building pipeline failed: {e}",
-            exc_info=True
+            exc_info=True,
         )
         raise
