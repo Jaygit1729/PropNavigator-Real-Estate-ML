@@ -1,6 +1,5 @@
 # src/model_building/model_building.py
 
-import csv
 import os
 import warnings
 from datetime import datetime
@@ -50,7 +49,6 @@ TARGET_COL = "price_in_cr"
 EXPERIMENT_NAME = "propnavigator-model-building"
 REGISTERED_MODEL_NAME = "propnavigator-price-model"
 MODEL_PATH = "artifacts/best_model.joblib"
-EXPERIMENT_LOG = "artifacts/experiment_log.csv"
 
 RANDOM_STATE = 42
 N_ITER = 25
@@ -391,50 +389,15 @@ def save_model(
         "trained_at": datetime.now().isoformat(timespec="seconds"),
     }
 
-    # Dated copy first, so a previous model is never the only casualty
-    # of a failed write.
+    # Dated copy so earlier models stay recoverable.
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    versioned_path = filepath.replace(".joblib", f"_{timestamp}.joblib")
-
-    # Second-resolution stamps collide if two saves land in the same second.
-    collision = 2
-    while os.path.exists(versioned_path):
-        versioned_path = filepath.replace(
-            ".joblib", f"_{timestamp}_{collision}.joblib"
-        )
-        collision += 1
-
-    joblib.dump(artifact, versioned_path)
+    joblib.dump(artifact, filepath.replace(".joblib", f"_{timestamp}.joblib"))
     joblib.dump(artifact, filepath)
 
-    _append_experiment_log(model_name, val_mape, test_mape, filepath)
-
     logger.info(
-        f"Saved {model_name} to {filepath} "
-        f"(version: {versioned_path}) | "
+        f"Saved {model_name} to {filepath} | "
         f"Val MAPE: {val_mape}% | Test MAPE: {test_mape}%"
     )
-
-
-def _append_experiment_log(model_name, val_mape, test_mape, filepath):
-    """Append one row per run. Local fallback for when MLflow is unreachable."""
-
-    os.makedirs(os.path.dirname(EXPERIMENT_LOG), exist_ok=True)
-    is_new = not os.path.exists(EXPERIMENT_LOG)
-
-    row = {
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "model_name": model_name,
-        "val_mape_percent": val_mape,
-        "test_mape_percent": test_mape,
-        "artifact_path": filepath,
-    }
-
-    with open(EXPERIMENT_LOG, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=row.keys())
-        if is_new:
-            writer.writeheader()
-        writer.writerow(row)
 
 
 # ---------------------------------------------------------------------
