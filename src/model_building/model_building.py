@@ -99,7 +99,7 @@ def create_train_val_test_split(df):
     )
 
     # Step 1:
-    # Reserve 20% as untouched test data.
+    # Reserve 20% as untouched test data. When creating the 80/20 split, preserve the distribution of these five price groups as much as possible.
 
     (
         X_temp,
