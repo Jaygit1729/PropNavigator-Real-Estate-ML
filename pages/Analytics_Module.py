@@ -1,6 +1,5 @@
 import os
 import ast
-
 import pandas as pd
 import plotly.express as px
 from wordcloud import WordCloud
@@ -14,7 +13,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Constants
 
 BASE_DIR  = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
