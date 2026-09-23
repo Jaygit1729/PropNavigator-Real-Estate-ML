@@ -126,7 +126,7 @@ if property_type == "Independent House":
 
 st.divider()
 
-if st.button("💰 Estimate Price", type="primary", use_container_width=True):
+if st.button("💰 Estimate Price", type="primary", width='stretch'):
     with st.spinner("Estimating price..."):
         payload = dict(
             property_type=property_type, sector=sector, area=area, bedRoom=bedRoom,

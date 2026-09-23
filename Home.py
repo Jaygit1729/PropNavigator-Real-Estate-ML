@@ -89,9 +89,12 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("**Data Collection**")
     st.caption(
-        "Custom two-layer Selenium scraper built with undetected-chromedriver "
-        "to bypass bot detection on 99acres. Batch-based persistence strategy "
-        "ensured no data loss during multi-hour scraping sessions."
+        "Custom HTTP scraper using curl_cffi with Chrome TLS impersonation, "
+        "reading the JSON payload embedded in each 99acres listing page. "
+        "Search results cap at ~70 pages, so the crawl was partitioned across "
+        "100 localities from the site's own filter facets to reach roughly 88% "
+        "of listed inventory. Batch-based persistence prevented data loss "
+        "during multi-hour runs."
     )
 
     st.markdown("**Feature Engineering**")
@@ -154,7 +157,7 @@ with t2:
 
 with t3:
     st.markdown("**Scraping**")
-    st.caption("Selenium · undetected-chromedriver")
+    st.caption("curl_cffi · Chrome TLS impersonation")
 
 with t4:
     st.markdown("**App**")

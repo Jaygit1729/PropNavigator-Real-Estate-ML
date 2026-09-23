@@ -140,7 +140,8 @@ if "selected_property" not in st.session_state:
 st.title("🏢 PropNavigator: Society Recommender")
 st.caption(
     "Discover similar societies/projects based on amenities, price profile, and location. "
-    "Select a society below and find your best matches — across 660 Gurgaon societies."
+    f"Select a society below and find your best matches — across {len(location_df):,} "
+    "Gurgaon societies."
 )
 st.divider()
 
@@ -162,7 +163,7 @@ st.caption(
     f"Higher similarity score = more similar overall profile."
 )
 
-if st.button("🔎 Find Similar Societies", type="primary", use_container_width=True):
+if st.button("🔎 Find Similar Societies", type="primary", width='stretch'):
     with st.spinner("Finding similar societies..."):
         st.session_state["recommendations"] = get_recommendations(
             property_name  =selected_apartment,

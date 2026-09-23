@@ -160,7 +160,7 @@ fig_mix.update_layout(
     legend_title_text="Property Type"
 )
 
-st.plotly_chart(fig_mix, use_container_width=True)
+st.plotly_chart(fig_mix, width='stretch')
 
 
 # Section 2 — Price Dispersion Heatmap
@@ -198,7 +198,7 @@ fig_disp = px.imshow(
 )
 
 fig_disp.update_layout(height=800)
-st.plotly_chart(fig_disp, use_container_width=True)
+st.plotly_chart(fig_disp, width='stretch')
 
 
 # Section 3 — Bedroom × Property Type Configuration Heatmap
@@ -236,7 +236,7 @@ fig_bhk = px.imshow(
 )
 
 fig_bhk.update_layout(height=400)
-st.plotly_chart(fig_bhk, use_container_width=True)
+st.plotly_chart(fig_bhk, width='stretch')
 
 
 # Section 4 — Price Distribution by Property Type (Violin)
@@ -257,7 +257,7 @@ fig_violin = px.violin(
 )
 
 fig_violin.update_layout(height=550, showlegend=False)
-st.plotly_chart(fig_violin, use_container_width=True)
+st.plotly_chart(fig_violin, width='stretch')
 
 
 # Section 5 — Area Segment vs Price Efficiency
@@ -281,7 +281,7 @@ fig_area = px.box(
 )
 
 fig_area.update_layout(height=550, showlegend=False)
-st.plotly_chart(fig_area, use_container_width=True)
+st.plotly_chart(fig_area, width='stretch')
 
 
 # Section 6 — Geomap
@@ -347,7 +347,7 @@ fig_map.update_layout(
     margin=dict(l=0, r=0, t=30, b=0)
 )
 
-st.plotly_chart(fig_map, use_container_width=True)
+st.plotly_chart(fig_map, width='stretch')
 
 
 # Section 7 — Amenities Word Cloud
@@ -382,7 +382,7 @@ if words:
         background_color="white"
     ).generate(" ".join(words))
 
-    st.image(wc.to_array(), use_container_width=True)
+    st.image(wc.to_array(), width='stretch')
 
 else:
     st.warning("No amenity data available for the selected sector.")
@@ -434,7 +434,7 @@ fig_scatter.update_layout(
 fig_scatter.update_xaxes(showgrid=False)
 fig_scatter.update_yaxes(showgrid=True, gridcolor="rgba(200,200,200,0.3)")
 
-st.plotly_chart(fig_scatter, use_container_width=True)
+st.plotly_chart(fig_scatter, width='stretch')
 
 
 # Section 9 — Bedroom-wise Price Distribution
@@ -474,7 +474,7 @@ fig_box = px.box(
 )
 
 fig_box.update_layout(height=500, showlegend=False)
-st.plotly_chart(fig_box, use_container_width=True)
+st.plotly_chart(fig_box, width='stretch')
 
 
 # Section 10 — Bedroom Distribution Pie Chart
@@ -509,4 +509,4 @@ fig_pie = px.pie(
 )
 
 fig_pie.update_layout(height=500, legend_title_text="Bedrooms")
-st.plotly_chart(fig_pie, use_container_width=True)
+st.plotly_chart(fig_pie, width='stretch')

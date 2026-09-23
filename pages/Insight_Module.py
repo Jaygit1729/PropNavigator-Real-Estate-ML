@@ -175,7 +175,7 @@ fig_sim = px.bar(sim, x="Δ (%)", y="Change", orientation="h", color="Δ (%)",
                  color_continuous_scale="RdYlGn", color_continuous_midpoint=0,
                  labels={"Δ (%)": "Price impact vs baseline (%)", "Change": ""})
 fig_sim.update_layout(height=400, coloraxis_showscale=False)
-st.plotly_chart(fig_sim, use_container_width=True)
+st.plotly_chart(fig_sim, width='stretch')
 st.caption("📖 **How to read:** each bar is the % change in the estimated price if you make that one "
            "change to your baseline property — bars to the **right (green) add value**, bars to the "
            "**left (red) reduce it**. Impacts are non-linear (from the real model); amenity toggles "
@@ -195,7 +195,7 @@ with col_a:
     fig = px.bar(top_sec, x="premium_pct", y="sector", orientation="h", color="premium_pct",
                  color_continuous_scale="Tealgrn", labels={"premium_pct": "Premium vs median (%)", "sector": ""})
     fig.update_layout(height=460, coloraxis_showscale=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 with col_b:
     st.subheader("🏢 Top Societies by Premium")
@@ -204,7 +204,7 @@ with col_b:
     fig = px.bar(top_soc, x="premium_pct", y="society", orientation="h", color="premium_pct",
                  color_continuous_scale="Purp", labels={"premium_pct": "Premium vs median (%)", "society": ""})
     fig.update_layout(height=460, coloraxis_showscale=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 st.divider()
 
@@ -217,7 +217,7 @@ top_global = global_imp.head(15).sort_values("mean_abs_shap")
 fig_g = px.bar(top_global, x="mean_abs_shap", y="feature", orientation="h", color="mean_abs_shap",
                color_continuous_scale="Blues", labels={"mean_abs_shap": "Mean |SHAP| (log-price)", "feature": ""})
 fig_g.update_layout(height=520, coloraxis_showscale=False)
-st.plotly_chart(fig_g, use_container_width=True)
+st.plotly_chart(fig_g, width='stretch')
 
 st.markdown("#### 🔍 Why this price? — explain a real listing")
 st.caption("Pick a listing to see the additive, model-true breakdown of its predicted price.")
@@ -240,7 +240,7 @@ fig_l = px.bar(plot_df.sort_values("pct_effect"), x="pct_effect", y="label", ori
                color="pct_effect", color_continuous_scale="RdYlGn", color_continuous_midpoint=0,
                labels={"pct_effect": "Price effect (%)", "label": ""})
 fig_l.update_layout(height=440, coloraxis_showscale=False)
-st.plotly_chart(fig_l, use_container_width=True)
+st.plotly_chart(fig_l, width='stretch')
 
 
 # Footer
