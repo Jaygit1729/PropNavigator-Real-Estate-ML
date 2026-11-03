@@ -34,9 +34,18 @@ jobs:
           dvc remote modify dagshub --local user "$DAGSHUB_USERNAME"
           dvc remote modify dagshub --local password "$DAGSHUB_TOKEN"
 
+      - name: Check DagsHub access
+        env:
+          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: >
+          curl -s -o /dev/null -w "DagsHub answered: %{http_code}\n"
+          -u "$DAGSHUB_USERNAME:$DAGSHUB_TOKEN"
+          https://dagshub.com/Jaygit1729/PropNavigator-Real-Estate-ML.dvc/files/md5/b3/5ce1b7ee821e855f160af746af9110
+
       - name: Download model and app data
         run: >
-          dvc pull
+          dvc pull -v
           artifacts/best_model.joblib
           data/analytics_module
           data/insight_module
