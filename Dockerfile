@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Install deps first (they change rarely) so a code edit doesn't reinstall everything.
 COPY requirements-api.txt .
-RUN pip install --no-cache-dir -r requirements-api.txt
+RUN pip install --no-cache-dir --default-timeout=120 --retries 10 -r requirements-api.txt
 
 # Copy only what the API needs at runtime.
 COPY api/ ./api/

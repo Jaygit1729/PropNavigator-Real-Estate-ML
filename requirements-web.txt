@@ -1,0 +1,11 @@
+# Lean dependencies for the Streamlit website image
+streamlit==1.52.1
+pandas==2.3.3
+numpy==2.3.5
+plotly==6.5.1
+requests==2.32.5
+wordcloud==1.9.5
+joblib==1.5.2
+scikit-learn==1.8.0
+lightgbm==4.6.0
+shap==0.51.0
