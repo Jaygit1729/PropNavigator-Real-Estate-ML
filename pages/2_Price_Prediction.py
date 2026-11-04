@@ -40,7 +40,7 @@ AGE_OPTIONS    = ['New Property', 'Relatively New', 'Moderately Old', 'Old Prope
 
 @st.cache_data(ttl=60, show_spinner=False)
 def api_get(path: str):
-    r = requests.get(f"{API_URL}{path}", timeout=10)
+    r = requests.get(f"{API_URL}{path}", timeout=90)
     r.raise_for_status()
     return r.json()
 
@@ -52,15 +52,12 @@ def load_csv(path):
 
 # Ask the API what model is serving and which sectors it accepts.
 try:
-    health = api_get("/health")
-    sectors = api_get("/sectors")["sectors"]
+    with st.spinner("Waking up the prediction service. On free hosting this can take up to a minute..."):
+        health = api_get("/health")
+        sectors = api_get("/sectors")["sectors"]
 except Exception as e:
-    st.error(
-        f"**Can't reach the prediction API at `{API_URL}`.**\n\n"
-        f"Start it from the project root:\n\n"
-        f"```\nuvicorn api.main:app --reload\n```\n\n"
-        f"Details: `{e}`"
-    )
+    st.error("The prediction service didn't respond. Please refresh this page in a minute.")
+    st.caption(f"Details: {e}")
     st.stop()
 
 model_name = health["model_name"]
@@ -137,7 +134,7 @@ if st.button("💰 Estimate Price", type="primary", width='stretch'):
             has_pool=int(has_pool), is_corner=int(is_corner),
         )
         try:
-            r = requests.post(f"{API_URL}/predict", json=payload, timeout=15)
+            r = requests.post(f"{API_URL}/predict", json=payload, timeout=90)
 
             if r.status_code == 422:
                 # The API's contract rejected the input — show why.
