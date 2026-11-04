@@ -8,6 +8,7 @@ the API from ever quoting two different prices for the same property.
 
 import os
 import sys
+import time
 
 import pandas as pd
 import requests
@@ -40,9 +41,17 @@ AGE_OPTIONS    = ['New Property', 'Relatively New', 'Moderately Old', 'Old Prope
 
 @st.cache_data(ttl=60, show_spinner=False)
 def api_get(path: str):
-    r = requests.get(f"{API_URL}{path}", timeout=90)
-    r.raise_for_status()
-    return r.json()
+    # A sleeping free service answers with an error until it has woken up,
+    # so keep trying: 18 tries, 5 seconds apart = up to 90 seconds.
+    for attempt in range(18):
+        try:
+            r = requests.get(f"{API_URL}{path}", timeout=90)
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.RequestException:
+            if attempt == 17:
+                raise
+            time.sleep(5)
 
 
 @st.cache_data(show_spinner=False)
@@ -134,7 +143,12 @@ if st.button("💰 Estimate Price", type="primary", width='stretch'):
             has_pool=int(has_pool), is_corner=int(is_corner),
         )
         try:
-            r = requests.post(f"{API_URL}/predict", json=payload, timeout=90)
+            # 502/503 means the service is still waking up, so try again.
+            for attempt in range(18):
+                r = requests.post(f"{API_URL}/predict", json=payload, timeout=90)
+                if r.status_code not in (502, 503):
+                    break
+                time.sleep(5)
 
             if r.status_code == 422:
                 # The API's contract rejected the input — show why.
