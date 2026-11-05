@@ -13,6 +13,7 @@ import time
 import pandas as pd
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.monitoring.prediction_logger import log_prediction
@@ -58,6 +59,13 @@ def api_get(path: str):
 def load_csv(path):
     return pd.read_csv(path)
 
+
+# A request from the website's server doesn't wake a sleeping Render service,
+# but a request from the visitor's browser does.
+components.html(
+    f'<script>fetch("{API_URL}/health", {{mode: "no-cors"}});</script>',
+    height=0,
+)
 
 # Ask the API what model is serving and which sectors it accepts.
 try:
